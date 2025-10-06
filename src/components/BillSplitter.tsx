@@ -368,12 +368,12 @@ const BillSplitter = () => {
                   value={newPersonName}
                   onChange={(e) => setNewPersonName(e.target.value)}
                   placeholder="Enter person's name"
-                  className='flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                  className='flex-1 min-w-0 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                   onKeyPress={(e) => e.key === 'Enter' && addPerson()}
                 />
                 <button
                   onClick={addPerson}
-                  className='px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
+                  className='flex-shrink-0 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
                 >
                   <Plus size={16} />
                 </button>
@@ -382,14 +382,14 @@ const BillSplitter = () => {
                 {people.map((person) => (
                   <div
                     key={person.id}
-                    className='flex items-center justify-between bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600'
+                    className='flex items-center justify-between bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600 gap-2'
                   >
-                    <span className='font-medium dark:text-gray-100'>
+                    <span className='font-medium dark:text-gray-100 text-sm sm:text-base truncate'>
                       {person.name}
                     </span>
                     <button
                       onClick={() => removePerson(person.id)}
-                      className='text-red-500 hover:text-red-700 transition-colors'
+                      className='flex-shrink-0 text-red-500 hover:text-red-700 transition-colors'
                     >
                       <Trash2 size={16} />
                     </button>
@@ -408,7 +408,7 @@ const BillSplitter = () => {
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
                   placeholder='Item name'
-                  className='flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                  className='flex-1 min-w-0 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                 />
                 <input
                   type='number'
@@ -416,11 +416,11 @@ const BillSplitter = () => {
                   onChange={(e) => setNewItemPrice(e.target.value)}
                   placeholder='Price'
                   step='0.01'
-                  className='w-20 sm:w-24 px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                  className='w-16 sm:w-24 flex-shrink-0 px-1 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                 />
                 <button
                   onClick={addItem}
-                  className='px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors'
+                  className='flex-shrink-0 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
                   disabled={people.length === 0}
                 >
                   <Plus size={16} />
@@ -432,33 +432,33 @@ const BillSplitter = () => {
                     key={item.id}
                     className='bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600'
                   >
-                    <div className='flex items-center justify-between mb-2'>
-                      <div>
-                        <span className='font-medium dark:text-gray-100'>
+                    <div className='flex items-center justify-between mb-2 gap-2'>
+                      <div className='flex-1 min-w-0'>
+                        <span className='font-medium dark:text-gray-100 text-sm sm:text-base break-words'>
                           {item.name}
                         </span>
-                        <span className='text-gray-600 dark:text-gray-300 ml-2'>
+                        <span className='text-gray-600 dark:text-gray-300 ml-2 text-sm sm:text-base whitespace-nowrap'>
                           {formatCurrency(item.price, defaultCurrency)}
                         </span>
                       </div>
                       <button
                         onClick={() => removeItem(item.id)}
-                        className='text-red-500 hover:text-red-700 transition-colors'
+                        className='flex-shrink-0 text-red-500 hover:text-red-700 transition-colors'
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
-                    <div className='flex flex-wrap gap-1'>
+                    <div className='flex flex-wrap gap-1.5'>
                       {people.map((person) => (
                         <button
                           key={person.id}
                           onClick={() =>
                             toggleItemAssignment(item.id, person.id)
                           }
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                          className={`px-2 py-1 text-xs sm:text-sm rounded transition-colors whitespace-nowrap ${
                             item.assignedTo.includes(person.id)
                               ? 'bg-blue-600 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
                           }`}
                         >
                           {person.name}
@@ -476,7 +476,7 @@ const BillSplitter = () => {
               </h2>
 
               <div className='mb-3'>
-                <label className='block text-sm font-medium dark:text-gray-200 mb-1 dark:text-gray-200'>
+                <label className='block text-xs sm:text-sm font-medium dark:text-gray-200 mb-1'>
                   Default Currency
                 </label>
                 <select
@@ -485,7 +485,7 @@ const BillSplitter = () => {
                     setDefaultCurrency(e.target.value)
                     setCustomRate('')
                   }}
-                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                  className='w-full px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                 >
                   {currencies.map((currency) => (
                     <option key={currency.code} value={currency.code}>
@@ -496,7 +496,7 @@ const BillSplitter = () => {
               </div>
 
               <div className='mb-3'>
-                <label className='block text-sm font-medium dark:text-gray-200 mb-1 dark:text-gray-200'>
+                <label className='block text-xs sm:text-sm font-medium dark:text-gray-200 mb-1'>
                   Convert Total to Currency
                 </label>
                 <select
@@ -505,7 +505,7 @@ const BillSplitter = () => {
                     setConvertToCurrency(e.target.value)
                     setCustomRate('')
                   }}
-                  className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                  className='w-full px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                 >
                   <option value=''>No conversion</option>
                   {currencies.map((currency) => (
@@ -529,14 +529,14 @@ const BillSplitter = () => {
                         exchangeRates[defaultCurrency]
                       ).toFixed(4)}`}
                       step='0.0001'
-                      className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                      className='w-full px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                     />
                   </div>
                 )}
               </div>
 
               <div className='mb-3'>
-                <label className='block text-sm font-medium dark:text-gray-200 mb-1 dark:text-gray-200'>
+                <label className='block text-xs sm:text-sm font-medium dark:text-gray-200 mb-1'>
                   Discount
                 </label>
                 <div className='flex gap-2'>
@@ -545,7 +545,7 @@ const BillSplitter = () => {
                     onChange={(e) =>
                       setDiscountType(e.target.value as 'percentage' | 'fixed')
                     }
-                    className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                    className='flex-shrink-0 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                   >
                     <option value='percentage'>%</option>
                     <option value='fixed'>{getDefaultCurrencySymbol()}</option>
@@ -556,7 +556,7 @@ const BillSplitter = () => {
                     onChange={(e) => setDiscountValue(e.target.value)}
                     placeholder='0'
                     step='0.01'
-                    className='flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                    className='flex-1 min-w-0 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                   />
                 </div>
               </div>
@@ -572,7 +572,7 @@ const BillSplitter = () => {
                   />
                   <label
                     htmlFor='serviceCharge'
-                    className='text-sm font-medium dark:text-gray-200'
+                    className='text-xs sm:text-sm font-medium dark:text-gray-200'
                   >
                     Include Service Charge
                   </label>
@@ -590,9 +590,9 @@ const BillSplitter = () => {
                       step='0.1'
                       min='0'
                       max='100'
-                      className='w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                      className='w-20 sm:w-24 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                     />
-                    <span className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300 ml-2'>
+                    <span className='text-xs text-gray-600 dark:text-gray-400 ml-2'>
                       %
                     </span>
                   </div>
@@ -610,7 +610,7 @@ const BillSplitter = () => {
                   />
                   <label
                     htmlFor='gst'
-                    className='text-sm font-medium dark:text-gray-200'
+                    className='text-xs sm:text-sm font-medium dark:text-gray-200'
                   >
                     Include GST
                   </label>
@@ -628,9 +628,9 @@ const BillSplitter = () => {
                       step='0.1'
                       min='0'
                       max='100'
-                      className='w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                      className='w-20 sm:w-24 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                     />
-                    <span className='text-xs text-gray-600 dark:text-gray-400 dark:text-gray-300 ml-2'>
+                    <span className='text-xs text-gray-600 dark:text-gray-400 ml-2'>
                       %
                     </span>
                   </div>
