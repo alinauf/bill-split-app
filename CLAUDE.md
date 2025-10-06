@@ -34,6 +34,8 @@ The dev server runs on http://localhost:3000 with hot-reloading enabled.
 - Global styles: `src/app/globals.css`
 - PostCSS config: `postcss.config.mjs`
 - Uses `@tailwindcss/postcss` plugin
+- Custom dark mode variant: `@custom-variant dark (&:is(.dark *))` in globals.css
+- Dark mode toggled via `.dark` class on `<html>` element (managed by ThemeToggle component)
 
 **TypeScript Configuration**:
 
@@ -59,12 +61,28 @@ The dev server runs on http://localhost:3000 with hot-reloading enabled.
   - Calculates totals with GST, service charges, and discounts
   - Multi-currency conversion support (15+ currencies)
   - Export functionality for bill breakdowns
+- `src/components/ThemeToggle.tsx` - Dark mode toggle component (client-side)
+  - Persists theme preference in localStorage
+  - Respects system color scheme preference
+  - Toggles `.dark` class on `<html>` element
 
 ## Key Files
 
 - `src/app/layout.tsx` - Root layout with PWA metadata and viewport config
 - `src/app/page.tsx` - Homepage that renders BillSplitter component
-- `src/components/BillSplitter.tsx` - Main application logic
+- `src/components/BillSplitter.tsx` - Main application logic (client component)
+- `src/components/ThemeToggle.tsx` - Dark mode toggle (client component)
 - `next.config.ts` - Next.js + PWA configuration
 - `public/manifest.json` - PWA manifest with app metadata
+- `scripts/generate-icons.mjs` - Script to generate PWA icons from icon.svg
 - `tsconfig.json` - TypeScript configuration with path aliases
+
+## Icon Management
+
+To regenerate PWA icons after updating `public/icon.svg`:
+
+```bash
+node scripts/generate-icons.mjs
+```
+
+This creates optimized `icon-192x192.png` and `icon-512x512.png` from the source SVG.

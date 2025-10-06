@@ -332,9 +332,11 @@ const BillSplitter = () => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'bill-breakdown.txt'
+    a.download = `bill-breakdown-${new Date().toISOString().split('T')[0]}.txt`
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 100)
   }
 
   const totals = calculateTotals()
@@ -342,22 +344,22 @@ const BillSplitter = () => {
   return (
     <>
       <ThemeToggle />
-      <div className='max-w-4xl mx-auto p-6 bg-white dark:bg-gray-900 min-h-screen'>
-        <div className='mb-8'>
-          <h1 className='text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-2'>
+      <div className='max-w-4xl mx-auto p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen pb-8'>
+        <div className='mb-6 sm:mb-8'>
+          <h1 className='text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-2'>
             <Receipt className='text-blue-600 dark:text-blue-400' />
             Bill Splitter
           </h1>
-          <p className='text-gray-600 dark:text-gray-400'>
+          <p className='text-sm sm:text-base text-gray-600 dark:text-gray-400'>
             Split restaurant bills by items with GST and discount support
           </p>
         </div>
 
-        <div className='grid md:grid-cols-2 gap-6'>
-          <div className='space-y-6'>
-            <div className='bg-gray-50 dark:bg-gray-800 p-4 rounded-lg'>
-              <h2 className='text-lg font-semibold mb-3 dark:text-gray-100 flex items-center gap-2 dark:text-gray-100'>
-                <Users className='text-blue-600 dark:text-blue-400' />
+        <div className='grid md:grid-cols-2 gap-4 sm:gap-6'>
+          <div className='space-y-4 sm:space-y-6'>
+            <div className='bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg'>
+              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100 flex items-center gap-2'>
+                <Users className='text-blue-600 dark:text-blue-400 w-4 h-4 sm:w-5 sm:h-5' />
                 People
               </h2>
               <div className='flex gap-2 mb-3'>
@@ -396,8 +398,8 @@ const BillSplitter = () => {
               </div>
             </div>
 
-            <div className='bg-gray-50 dark:bg-gray-800 p-4 rounded-lg'>
-              <h2 className='text-lg font-semibold mb-3 dark:text-gray-100'>
+            <div className='bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg'>
+              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100'>
                 Items
               </h2>
               <div className='flex gap-2 mb-3'>
@@ -414,7 +416,7 @@ const BillSplitter = () => {
                   onChange={(e) => setNewItemPrice(e.target.value)}
                   placeholder='Price'
                   step='0.01'
-                  className='w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                  className='w-20 sm:w-24 px-2 sm:px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                 />
                 <button
                   onClick={addItem}
@@ -468,8 +470,8 @@ const BillSplitter = () => {
               </div>
             </div>
 
-            <div className='bg-gray-50 dark:bg-gray-800 p-4 rounded-lg'>
-              <h2 className='text-lg font-semibold mb-3 dark:text-gray-100'>
+            <div className='bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg'>
+              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100'>
                 Settings
               </h2>
 
@@ -637,12 +639,12 @@ const BillSplitter = () => {
             </div>
           </div>
 
-          <div className='space-y-6'>
-            <div className='bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg'>
-              <h2 className='text-lg font-semibold mb-3 dark:text-gray-100'>
+          <div className='space-y-4 sm:space-y-6'>
+            <div className='bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-lg'>
+              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100'>
                 Bill Summary
               </h2>
-              <div className='space-y-2'>
+              <div className='space-y-2 text-sm sm:text-base'>
                 <div className='flex justify-between'>
                   <span>Subtotal:</span>
                   <span>
@@ -696,7 +698,7 @@ const BillSplitter = () => {
                     </span>
                   </div>
                 )}
-                <div className='flex justify-between font-bold text-lg border-t pt-2'>
+                <div className='flex justify-between font-bold text-base sm:text-lg border-t pt-2'>
                   <span>Total:</span>
                   <div className='text-right'>
                     <div>{formatCurrency(totals.total, defaultCurrency)}</div>
@@ -718,8 +720,8 @@ const BillSplitter = () => {
               </div>
             </div>
 
-            <div className='bg-green-50 dark:bg-green-900/20 p-4 rounded-lg'>
-              <h2 className='text-lg font-semibold mb-3 dark:text-gray-100'>
+            <div className='bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-lg'>
+              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100'>
                 Per Person
               </h2>
               <div className='space-y-3'>
@@ -733,16 +735,16 @@ const BillSplitter = () => {
                       className='bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600'
                     >
                       <div className='flex justify-between items-center mb-2'>
-                        <span className='font-medium dark:text-gray-100'>
+                        <span className='font-medium dark:text-gray-100 text-sm sm:text-base'>
                           {person.name}
                         </span>
                         <div className='text-right'>
-                          <div className='text-lg font-bold'>
+                          <div className='text-base sm:text-lg font-bold'>
                             {formatCurrency(personTotal, defaultCurrency)}
                           </div>
                           {convertToCurrency &&
                             convertToCurrency !== defaultCurrency && (
-                              <div className='text-sm text-gray-600 dark:text-gray-400'>
+                              <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-400'>
                                 {formatCurrency(
                                   convertCurrency(
                                     personTotal,
@@ -755,7 +757,7 @@ const BillSplitter = () => {
                             )}
                         </div>
                       </div>
-                      <div className='text-sm text-gray-600 dark:text-gray-400'>
+                      <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-400'>
                         {personItems.map((item) => (
                           <div key={item.id} className='flex justify-between'>
                             <span>
@@ -781,7 +783,7 @@ const BillSplitter = () => {
 
             <button
               onClick={exportBreakdown}
-              className='w-full px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors flex items-center justify-center gap-2'
+              className='w-full px-4 py-3 bg-gray-800 dark:bg-gray-700 text-white rounded-md hover:bg-gray-900 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base'
               disabled={items.length === 0 || people.length === 0}
             >
               <Download size={16} />
