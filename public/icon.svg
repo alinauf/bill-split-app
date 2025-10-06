@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#2563eb" rx="96"/>
+  <g fill="#ffffff">
+    <!-- Receipt icon -->
+    <rect x="128" y="80" width="256" height="352" rx="8" fill="none" stroke="#ffffff" stroke-width="16"/>
+    <!-- Receipt lines -->
+    <line x1="160" y1="144" x2="352" y2="144" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+    <line x1="160" y1="192" x2="352" y2="192" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+    <line x1="160" y1="240" x2="280" y2="240" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+    <!-- Dollar sign -->
+    <circle cx="320" cy="320" r="48" fill="none" stroke="#ffffff" stroke-width="12"/>
+    <text x="320" y="340" font-size="48" font-weight="bold" text-anchor="middle" fill="#ffffff">$</text>
+  </g>
+</svg>

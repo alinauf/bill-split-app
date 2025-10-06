@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bill Splitter PWA
+
+A Progressive Web App for splitting restaurant bills by items with support for GST, service charges, discounts, and multi-currency conversion.
+
+## Features
+
+- **Item-based bill splitting** - Assign specific items to people for accurate splits
+- **Tax & Charges** - Support for GST and service charges with customizable rates
+- **Discounts** - Apply percentage or fixed-amount discounts
+- **Multi-currency** - Convert totals to 15+ currencies with custom exchange rates
+- **PWA Support** - Install on mobile devices, works offline
+- **Export** - Download detailed bill breakdowns as text files
+- **Responsive Design** - Works seamlessly on mobile and desktop
 
 ## Getting Started
 
-First, run the development server:
+### Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Production Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## PWA Features
 
-To learn more about Next.js, take a look at the following resources:
+This app is a fully-featured Progressive Web App with:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Offline Support** - Works without internet connection after first visit
+- **Installable** - Add to home screen on mobile devices
+- **App-like Experience** - Runs in standalone mode on mobile
+- **Automatic Updates** - Service worker handles updates seamlessly
+- **Responsive Icons** - Optimized icons for all devices (192x192, 512x512)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Installing on Mobile
 
-## Deploy on Vercel
+1. Open the app in your mobile browser
+2. Tap the "Add to Home Screen" or "Install" prompt
+3. The app will appear as a native app icon
+4. Launch it like any other app
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Technology Stack
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Next.js 15.5** - React framework with App Router
+- **React 19** - UI library
+- **TypeScript** - Type safety
+- **Tailwind CSS v4** - Styling
+- **next-pwa** - Progressive Web App support
+- **lucide-react** - Icon library
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── layout.tsx      # Root layout with PWA metadata
+│   ├── page.tsx        # Home page
+│   └── globals.css     # Global styles
+├── components/
+│   └── BillSplitter.tsx # Main bill splitter component
+public/
+├── manifest.json       # PWA manifest
+├── icon-192x192.png   # PWA icon (192x192)
+├── icon-512x512.png   # PWA icon (512x512)
+└── icon.svg           # Source icon
+```
+
+## Regenerating Icons
+
+If you need to regenerate the PWA icons:
+
+```bash
+node scripts/generate-icons.mjs
+```
+
+This will create `icon-192x192.png` and `icon-512x512.png` from `icon.svg`.
