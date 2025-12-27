@@ -86,7 +86,7 @@ const BillSplitter = () => {
     { code: 'THB', symbol: '฿', name: 'Thai Baht' },
     { code: 'PHP', symbol: '₱', name: 'Philippine Peso' },
     { code: 'VND', symbol: '₫', name: 'Vietnamese Dong' },
-    { code: 'MVR', symbol: 'RF', name: 'Maldivian Rufiyaa' },
+    { code: 'MVR', symbol: 'MVR', name: 'Maldivian Rufiyaa' },
   ]
 
   const convertCurrency = (
@@ -169,7 +169,9 @@ const BillSplitter = () => {
     setItems(items.filter((item) => item.id !== itemId))
   }
 
-  const addItemsFromScan = (scannedItems: Array<{ name: string; price: number; quantity: number }>) => {
+  const addItemsFromScan = (
+    scannedItems: Array<{ name: string; price: number; quantity: number }>
+  ) => {
     const newItems = scannedItems.map((item, index) => ({
       id: Date.now() + index,
       name: item.name,
@@ -433,7 +435,9 @@ const BillSplitter = () => {
                 />
                 <div className='flex gap-2'>
                   <div className='flex items-center gap-1 flex-1'>
-                    <span className='text-xs text-gray-500 dark:text-gray-400'>Qty</span>
+                    <span className='text-xs text-gray-500 dark:text-gray-400'>
+                      Qty
+                    </span>
                     <input
                       type='number'
                       value={newItemQty}
@@ -444,7 +448,9 @@ const BillSplitter = () => {
                     />
                   </div>
                   <div className='flex items-center gap-1 flex-1'>
-                    <span className='text-xs text-gray-500 dark:text-gray-400'>Price</span>
+                    <span className='text-xs text-gray-500 dark:text-gray-400'>
+                      Price
+                    </span>
                     <input
                       type='number'
                       value={newItemPrice}

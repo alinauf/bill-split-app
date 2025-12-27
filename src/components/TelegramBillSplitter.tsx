@@ -1,7 +1,17 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Plus, Users, Receipt, Share2, Trash2, Camera, Lock, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  Plus,
+  Users,
+  Receipt,
+  Share2,
+  Trash2,
+  Camera,
+  Lock,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react'
 import BillScanner from './BillScanner'
 import AccessCodeModal from './AccessCodeModal'
 
@@ -65,7 +75,10 @@ declare global {
 }
 
 const TelegramBillSplitter = () => {
-  const [telegramData, setTelegramData] = useState({ userName: 'Guest', isDark: false })
+  const [telegramData, setTelegramData] = useState({
+    userName: 'Guest',
+    isDark: false,
+  })
 
   // State
   const [people, setPeople] = useState<Person[]>([])
@@ -78,7 +91,9 @@ const TelegramBillSplitter = () => {
   const [gstRate, setGstRate] = useState('8')
   const [serviceChargeEnabled, setServiceChargeEnabled] = useState(false)
   const [serviceChargeRate, setServiceChargeRate] = useState('10')
-  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage')
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>(
+    'percentage'
+  )
   const [discountValue, setDiscountValue] = useState('')
   const [defaultCurrency, setDefaultCurrency] = useState('MVR')
   const [showSettings, setShowSettings] = useState(false)
@@ -130,7 +145,7 @@ const TelegramBillSplitter = () => {
     { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
     { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit' },
     { code: 'THB', symbol: '฿', name: 'Thai Baht' },
-    { code: 'MVR', symbol: 'RF', name: 'Maldivian Rufiyaa' },
+    { code: 'MVR', symbol: 'MVR', name: 'Maldivian Rufiyaa' },
   ]
 
   const formatCurrency = (amount: number, currencyCode: string): string => {
@@ -183,7 +198,9 @@ const TelegramBillSplitter = () => {
     setItems(items.filter((item) => item.id !== itemId))
   }
 
-  const addItemsFromScan = (scannedItems: Array<{ name: string; price: number; quantity: number }>) => {
+  const addItemsFromScan = (
+    scannedItems: Array<{ name: string; price: number; quantity: number }>
+  ) => {
     const newItems = scannedItems.map((item, index) => ({
       id: Date.now() + index,
       name: item.name,
@@ -288,15 +305,24 @@ const TelegramBillSplitter = () => {
     breakdown += '📋 Items:\n'
     items.forEach((item) => {
       const qtyPrefix = item.quantity > 1 ? `${item.quantity}x ` : ''
-      breakdown += `• ${qtyPrefix}${item.name} - ${formatCurrency(item.price, defaultCurrency)}\n`
+      breakdown += `• ${qtyPrefix}${item.name} - ${formatCurrency(
+        item.price,
+        defaultCurrency
+      )}\n`
     })
 
-    breakdown += `\n💰 Total: ${formatCurrency(totals.total, defaultCurrency)}\n`
+    breakdown += `\n💰 Total: ${formatCurrency(
+      totals.total,
+      defaultCurrency
+    )}\n`
 
     breakdown += '\n👥 Per Person:\n'
     people.forEach((person) => {
       const personTotal = calculatePersonTotal(person.id)
-      breakdown += `• ${person.name}: ${formatCurrency(personTotal, defaultCurrency)}\n`
+      breakdown += `• ${person.name}: ${formatCurrency(
+        personTotal,
+        defaultCurrency
+      )}\n`
     })
 
     return breakdown
@@ -349,7 +375,9 @@ const TelegramBillSplitter = () => {
             <Receipt size={24} />
             <div>
               <h1 className='font-bold text-lg'>Bill Splitter</h1>
-              <p className='text-xs text-blue-100'>Hi, {telegramData.userName}!</p>
+              <p className='text-xs text-blue-100'>
+                Hi, {telegramData.userName}!
+              </p>
             </div>
           </div>
           <button
@@ -392,7 +420,9 @@ const TelegramBillSplitter = () => {
                 key={person.id}
                 className='flex items-center gap-1 bg-white dark:bg-gray-700 pl-4 pr-2 py-2 rounded-full border border-gray-200 dark:border-gray-600'
               >
-                <span className='dark:text-gray-100 text-sm'>{person.name}</span>
+                <span className='dark:text-gray-100 text-sm'>
+                  {person.name}
+                </span>
                 <button
                   onClick={() => removePerson(person.id)}
                   className='text-red-500 active:text-red-700 p-1 touch-manipulation'
@@ -445,7 +475,9 @@ const TelegramBillSplitter = () => {
             />
             <div className='flex gap-2'>
               <div className='flex-1'>
-                <label className='text-xs text-gray-500 dark:text-gray-400 mb-1 block'>Price</label>
+                <label className='text-xs text-gray-500 dark:text-gray-400 mb-1 block'>
+                  Price
+                </label>
                 <input
                   type='text'
                   inputMode='decimal'
@@ -456,7 +488,9 @@ const TelegramBillSplitter = () => {
                 />
               </div>
               <div className='w-20'>
-                <label className='text-xs text-gray-500 dark:text-gray-400 mb-1 block'>Qty</label>
+                <label className='text-xs text-gray-500 dark:text-gray-400 mb-1 block'>
+                  Qty
+                </label>
                 <input
                   type='text'
                   inputMode='numeric'
@@ -469,7 +503,9 @@ const TelegramBillSplitter = () => {
               <div className='flex items-end'>
                 <button
                   onClick={addItem}
-                  disabled={people.length === 0 || !newItemName.trim() || !newItemPrice}
+                  disabled={
+                    people.length === 0 || !newItemName.trim() || !newItemPrice
+                  }
                   className='px-5 py-3 bg-green-600 text-white rounded-xl active:bg-green-700 disabled:opacity-50 touch-manipulation'
                 >
                   <Plus size={22} />
@@ -561,7 +597,9 @@ const TelegramBillSplitter = () => {
                 <div className='flex gap-2'>
                   <select
                     value={discountType}
-                    onChange={(e) => setDiscountType(e.target.value as 'percentage' | 'fixed')}
+                    onChange={(e) =>
+                      setDiscountType(e.target.value as 'percentage' | 'fixed')
+                    }
                     className='px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
                   >
                     <option value='percentage'>%</option>
@@ -596,7 +634,9 @@ const TelegramBillSplitter = () => {
                     className='w-16 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-center'
                   />
                 )}
-                {serviceChargeEnabled && <span className='dark:text-gray-400'>%</span>}
+                {serviceChargeEnabled && (
+                  <span className='dark:text-gray-400'>%</span>
+                )}
               </div>
 
               <div className='flex items-center gap-3'>
@@ -635,13 +675,17 @@ const TelegramBillSplitter = () => {
             {totals.discountAmount > 0 && (
               <div className='flex justify-between text-red-600'>
                 <span>Discount</span>
-                <span>-{formatCurrency(totals.discountAmount, defaultCurrency)}</span>
+                <span>
+                  -{formatCurrency(totals.discountAmount, defaultCurrency)}
+                </span>
               </div>
             )}
             {serviceChargeEnabled && totals.serviceChargeAmount > 0 && (
               <div className='flex justify-between dark:text-gray-300'>
                 <span>Service ({serviceChargeRate}%)</span>
-                <span>{formatCurrency(totals.serviceChargeAmount, defaultCurrency)}</span>
+                <span>
+                  {formatCurrency(totals.serviceChargeAmount, defaultCurrency)}
+                </span>
               </div>
             )}
             {gstEnabled && totals.gstAmount > 0 && (
@@ -660,7 +704,9 @@ const TelegramBillSplitter = () => {
         {/* Per Person */}
         {people.length > 0 && (
           <div className='bg-green-50 dark:bg-green-900/30 p-4 rounded-xl'>
-            <h2 className='font-semibold mb-3 dark:text-gray-100'>Per Person</h2>
+            <h2 className='font-semibold mb-3 dark:text-gray-100'>
+              Per Person
+            </h2>
             <div className='space-y-3'>
               {people.map((person) => {
                 const personTotal = calculatePersonTotal(person.id)
@@ -672,7 +718,9 @@ const TelegramBillSplitter = () => {
                     className='bg-white dark:bg-gray-700 p-3 rounded-xl'
                   >
                     <div className='flex justify-between items-center'>
-                      <span className='font-medium dark:text-gray-100'>{person.name}</span>
+                      <span className='font-medium dark:text-gray-100'>
+                        {person.name}
+                      </span>
                       <span className='font-bold text-lg dark:text-gray-100'>
                         {formatCurrency(personTotal, defaultCurrency)}
                       </span>
@@ -684,9 +732,15 @@ const TelegramBillSplitter = () => {
                             <span>
                               {item.quantity > 1 && `${item.quantity}x `}
                               {item.name}
-                              {item.assignedTo.length > 1 && ` (÷${item.assignedTo.length})`}
+                              {item.assignedTo.length > 1 &&
+                                ` (÷${item.assignedTo.length})`}
                             </span>
-                            <span>{formatCurrency(item.price / item.assignedTo.length, defaultCurrency)}</span>
+                            <span>
+                              {formatCurrency(
+                                item.price / item.assignedTo.length,
+                                defaultCurrency
+                              )}
+                            </span>
                           </div>
                         ))}
                       </div>

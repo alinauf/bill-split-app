@@ -1,12 +1,25 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
-import { Camera, Upload, Loader2, X, AlertCircle } from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
+import { Camera, Upload, Loader2, X, AlertCircle, Info } from 'lucide-react'
 import ScanReviewModal, { ScannedItem } from './ScanReviewModal'
 
 interface BillScannerProps {
   onItemsConfirmed: (items: Array<{ name: string; price: number; quantity: number }>) => void
   disabled?: boolean
+}
+
+// Check if we're in Telegram Mini App
+function isTelegramMiniApp(): boolean {
+  if (typeof window === 'undefined') return false
+  return !!(window as { Telegram?: { WebApp?: unknown } }).Telegram?.WebApp
+}
+
+// Check if we're on iOS
+function isIOS(): boolean {
+  if (typeof window === 'undefined') return false
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }
 
 export default function BillScanner({
@@ -19,9 +32,15 @@ export default function BillScanner({
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
+  const [isTelegramIOS, setIsTelegramIOS] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    // Check if we're in Telegram on iOS - camera won't work
+    setIsTelegramIOS(isTelegramMiniApp() && isIOS())
+  }, [])
 
   const processImage = async (file: File) => {
     setError(null)
@@ -169,6 +188,19 @@ export default function BillScanner({
           </div>
         )}
 
+        {/* iOS Telegram Warning */}
+        {isTelegramIOS && (
+          <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md flex items-start gap-2">
+            <Info className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-amber-700 dark:text-amber-300 font-medium">Camera not available on iOS</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                Telegram on iOS doesn&apos;t support camera access. Please use the Upload button to select a photo from your gallery, or open this app in Safari for camera access.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Buttons */}
         {!isScanning && (
           <div className="flex gap-2">
@@ -180,14 +212,16 @@ export default function BillScanner({
               <Upload size={16} className="text-gray-600 dark:text-gray-300" />
               <span className="text-gray-700 dark:text-gray-200">Upload</span>
             </button>
-            <button
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={disabled}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-            >
-              <Camera size={16} />
-              <span>Take Photo</span>
-            </button>
+            {!isTelegramIOS && (
+              <button
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={disabled}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                <Camera size={16} />
+                <span>Take Photo</span>
+              </button>
+            )}
           </div>
         )}
 
