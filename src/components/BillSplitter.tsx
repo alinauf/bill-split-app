@@ -525,16 +525,38 @@ const BillSplitter = () => {
                     className='bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600'
                   >
                     <div className='flex items-center justify-between mb-2 gap-2'>
-                      <div className='flex-1 min-w-0'>
-                        <span className='font-medium dark:text-gray-100 text-sm sm:text-base break-words'>
-                          {item.quantity > 1 && (
-                            <span className='text-blue-600 dark:text-blue-400 mr-1'>
-                              {item.quantity}x
-                            </span>
-                          )}
+                      <div className='flex-1 min-w-0 flex items-center gap-2'>
+                        <div className='flex items-center gap-1 flex-shrink-0'>
+                          <button
+                            onClick={() => {
+                              if (item.quantity > 1) {
+                                setItems(items.map(i =>
+                                  i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i
+                                ))
+                              }
+                            }}
+                            className='w-6 h-6 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm'
+                          >
+                            -
+                          </button>
+                          <span className='w-6 text-center text-sm font-medium dark:text-gray-100'>
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setItems(items.map(i =>
+                                i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+                              ))
+                            }}
+                            className='w-6 h-6 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm'
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className='font-medium dark:text-gray-100 text-sm sm:text-base break-words flex-1'>
                           {item.name}
                         </span>
-                        <span className='text-gray-600 dark:text-gray-300 ml-2 text-sm sm:text-base whitespace-nowrap'>
+                        <span className='text-gray-600 dark:text-gray-300 text-sm sm:text-base whitespace-nowrap'>
                           {formatCurrency(item.price * item.quantity, defaultCurrency)}
                         </span>
                       </div>
