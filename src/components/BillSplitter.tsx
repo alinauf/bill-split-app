@@ -423,37 +423,45 @@ const BillSplitter = () => {
                 onItemsConfirmed={addItemsFromScan}
                 disabled={people.length === 0}
               />
-              <div className='flex gap-2 mb-3'>
+              <div className='space-y-2 mb-3'>
                 <input
                   type='text'
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
                   placeholder='Item name'
-                  className='flex-1 min-w-0 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                  className='w-full px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                 />
-                <input
-                  type='number'
-                  value={newItemQty}
-                  onChange={(e) => setNewItemQty(e.target.value)}
-                  placeholder='Qty'
-                  min='1'
-                  className='w-12 sm:w-14 flex-shrink-0 px-1 sm:px-2 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                />
-                <input
-                  type='number'
-                  value={newItemPrice}
-                  onChange={(e) => setNewItemPrice(e.target.value)}
-                  placeholder='Price'
-                  step='0.01'
-                  className='w-16 sm:w-24 flex-shrink-0 px-1 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                />
-                <button
-                  onClick={addItem}
-                  className='flex-shrink-0 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
-                  disabled={people.length === 0}
-                >
-                  <Plus size={16} />
-                </button>
+                <div className='flex gap-2'>
+                  <div className='flex items-center gap-1 flex-1'>
+                    <span className='text-xs text-gray-500 dark:text-gray-400'>Qty</span>
+                    <input
+                      type='number'
+                      value={newItemQty}
+                      onChange={(e) => setNewItemQty(e.target.value)}
+                      placeholder='1'
+                      min='1'
+                      className='w-14 flex-shrink-0 px-2 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                    />
+                  </div>
+                  <div className='flex items-center gap-1 flex-1'>
+                    <span className='text-xs text-gray-500 dark:text-gray-400'>Price</span>
+                    <input
+                      type='number'
+                      value={newItemPrice}
+                      onChange={(e) => setNewItemPrice(e.target.value)}
+                      placeholder='0.00'
+                      step='0.01'
+                      className='w-full min-w-0 px-2 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                    />
+                  </div>
+                  <button
+                    onClick={addItem}
+                    className='flex-shrink-0 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
+                    disabled={people.length === 0}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
               </div>
               <div className='space-y-3'>
                 {items.map((item) => (

@@ -227,26 +227,30 @@ export default function ScanReviewModal({
                       />
                       {getConfidenceBadge(item.confidence)}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500 dark:text-gray-400 text-sm">Qty:</span>
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                        min="1"
-                        className="w-14 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                      />
-                      <span className="text-gray-500 dark:text-gray-400 text-sm">$</span>
-                      <input
-                        type="number"
-                        value={item.price}
-                        onChange={(e) => updateItem(item.id, 'price', e.target.value)}
-                        step="0.01"
-                        className="w-24 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                      />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">Qty</span>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                          min="1"
+                          className="w-12 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 flex-1 min-w-[100px]">
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">$</span>
+                        <input
+                          type="number"
+                          value={item.price}
+                          onChange={(e) => updateItem(item.id, 'price', e.target.value)}
+                          step="0.01"
+                          className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                        />
+                      </div>
                       <button
                         onClick={() => deleteItem(item.id)}
-                        className="ml-auto text-red-500 hover:text-red-700"
+                        className="flex-shrink-0 text-red-500 hover:text-red-700"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -262,28 +266,33 @@ export default function ScanReviewModal({
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
               Add missed item:
             </p>
-            <div className="flex gap-2">
+            <div className="space-y-2">
               <input
                 type="text"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 placeholder="Item name"
-                className="flex-1 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
               />
-              <input
-                type="number"
-                value={newItemPrice}
-                onChange={(e) => setNewItemPrice(e.target.value)}
-                placeholder="Price"
-                step="0.01"
-                className="w-20 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
-              />
-              <button
-                onClick={addManualItem}
-                className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                <Plus size={16} />
-              </button>
+              <div className="flex gap-2">
+                <div className="flex items-center gap-1 flex-1">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">$</span>
+                  <input
+                    type="number"
+                    value={newItemPrice}
+                    onChange={(e) => setNewItemPrice(e.target.value)}
+                    placeholder="0.00"
+                    step="0.01"
+                    className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                  />
+                </div>
+                <button
+                  onClick={addManualItem}
+                  className="flex-shrink-0 px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
