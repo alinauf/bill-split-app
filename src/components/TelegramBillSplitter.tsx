@@ -544,48 +544,51 @@ const TelegramBillSplitter = () => {
                 key={item.id}
                 className='bg-white dark:bg-gray-700 p-3 rounded-xl border border-gray-200 dark:border-gray-600'
               >
-                <div className='flex items-center justify-between mb-2'>
-                  <div className='flex-1 flex items-center gap-2'>
-                    <div className='flex items-center gap-1'>
-                      <button
-                        onClick={() => {
-                          if (item.quantity > 1) {
-                            setItems(items.map(i =>
-                              i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i
-                            ))
-                          }
-                        }}
-                        className='w-7 h-7 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 active:bg-gray-300 touch-manipulation'
-                      >
-                        -
-                      </button>
-                      <span className='w-8 text-center text-sm font-medium dark:text-gray-100'>
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => {
-                          setItems(items.map(i =>
-                            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-                          ))
-                        }}
-                        className='w-7 h-7 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 active:bg-gray-300 touch-manipulation'
-                      >
-                        +
-                      </button>
-                    </div>
-                    <span className='font-medium dark:text-gray-100 flex-1'>
-                      {item.name}
-                    </span>
-                    <span className='text-gray-600 dark:text-gray-300'>
-                      {formatCurrency(item.price * item.quantity, defaultCurrency)}
-                    </span>
-                  </div>
+                {/* Row 1: Item name + Delete */}
+                <div className='flex items-start justify-between gap-2 mb-2'>
+                  <span className='font-medium dark:text-gray-100 text-base leading-tight'>
+                    {item.name}
+                  </span>
                   <button
                     onClick={() => removeItem(item.id)}
-                    className='text-red-500 active:text-red-700 p-2 -mr-1 touch-manipulation'
+                    className='text-red-500 active:text-red-700 p-1 -mr-1 -mt-1 touch-manipulation flex-shrink-0'
                   >
                     <Trash2 size={18} />
                   </button>
+                </div>
+
+                {/* Row 2: Quantity controls + Price */}
+                <div className='flex items-center justify-between mb-2'>
+                  <div className='flex items-center gap-1'>
+                    <button
+                      onClick={() => {
+                        if (item.quantity > 1) {
+                          setItems(items.map(i =>
+                            i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i
+                          ))
+                        }
+                      }}
+                      className='w-7 h-7 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 active:bg-gray-300 touch-manipulation'
+                    >
+                      -
+                    </button>
+                    <span className='w-8 text-center text-sm font-medium dark:text-gray-100'>
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setItems(items.map(i =>
+                          i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+                        ))
+                      }}
+                      className='w-7 h-7 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 active:bg-gray-300 touch-manipulation'
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className='text-gray-600 dark:text-gray-300 font-medium'>
+                    {formatCurrency(item.price * item.quantity, defaultCurrency)}
+                  </span>
                 </div>
                 <div className='flex flex-wrap gap-2'>
                   <button

@@ -524,48 +524,51 @@ const BillSplitter = () => {
                     key={item.id}
                     className='bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600'
                   >
-                    <div className='flex items-center justify-between mb-2 gap-2'>
-                      <div className='flex-1 min-w-0 flex items-center gap-2'>
-                        <div className='flex items-center gap-1 flex-shrink-0'>
-                          <button
-                            onClick={() => {
-                              if (item.quantity > 1) {
-                                setItems(items.map(i =>
-                                  i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i
-                                ))
-                              }
-                            }}
-                            className='w-6 h-6 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm'
-                          >
-                            -
-                          </button>
-                          <span className='w-6 text-center text-sm font-medium dark:text-gray-100'>
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => {
-                              setItems(items.map(i =>
-                                i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-                              ))
-                            }}
-                            className='w-6 h-6 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm'
-                          >
-                            +
-                          </button>
-                        </div>
-                        <span className='font-medium dark:text-gray-100 text-sm sm:text-base break-words flex-1'>
-                          {item.name}
-                        </span>
-                        <span className='text-gray-600 dark:text-gray-300 text-sm sm:text-base whitespace-nowrap'>
-                          {formatCurrency(item.price * item.quantity, defaultCurrency)}
-                        </span>
-                      </div>
+                    {/* Row 1: Item name + Delete */}
+                    <div className='flex items-start justify-between gap-2 mb-2'>
+                      <span className='font-medium dark:text-gray-100 text-sm sm:text-base'>
+                        {item.name}
+                      </span>
                       <button
                         onClick={() => removeItem(item.id)}
-                        className='flex-shrink-0 text-red-500 hover:text-red-700 transition-colors'
+                        className='flex-shrink-0 text-red-500 hover:text-red-700 transition-colors -mt-0.5'
                       >
                         <Trash2 size={16} />
                       </button>
+                    </div>
+
+                    {/* Row 2: Quantity controls + Price */}
+                    <div className='flex items-center justify-between mb-2'>
+                      <div className='flex items-center gap-1'>
+                        <button
+                          onClick={() => {
+                            if (item.quantity > 1) {
+                              setItems(items.map(i =>
+                                i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i
+                              ))
+                            }
+                          }}
+                          className='w-6 h-6 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm'
+                        >
+                          -
+                        </button>
+                        <span className='w-6 text-center text-sm font-medium dark:text-gray-100'>
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setItems(items.map(i =>
+                              i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+                            ))
+                          }}
+                          className='w-6 h-6 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm'
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className='text-gray-600 dark:text-gray-300 text-sm sm:text-base font-medium'>
+                        {formatCurrency(item.price * item.quantity, defaultCurrency)}
+                      </span>
                     </div>
                     <div className='flex flex-wrap gap-1.5'>
                       <button
