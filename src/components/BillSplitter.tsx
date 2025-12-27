@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Plus, Users, Receipt, Download, Trash2 } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
+import BillScanner from './BillScanner'
 
 interface Person {
   id: number
@@ -13,6 +14,7 @@ interface Item {
   id: number
   name: string
   price: number
+  quantity: number
   assignedTo: number[]
 }
 
@@ -38,6 +40,7 @@ const BillSplitter = () => {
   const [newPersonName, setNewPersonName] = useState('')
   const [newItemName, setNewItemName] = useState('')
   const [newItemPrice, setNewItemPrice] = useState('')
+  const [newItemQty, setNewItemQty] = useState('1')
   const [gstEnabled, setGstEnabled] = useState(false)
   const [gstRate, setGstRate] = useState('8')
   const [serviceChargeEnabled, setServiceChargeEnabled] = useState(false)
@@ -152,16 +155,29 @@ const BillSplitter = () => {
           id: Date.now(),
           name: newItemName.trim(),
           price: parseFloat(newItemPrice),
+          quantity: parseInt(newItemQty) || 1,
           assignedTo: [],
         },
       ])
       setNewItemName('')
       setNewItemPrice('')
+      setNewItemQty('1')
     }
   }
 
   const removeItem = (itemId: number) => {
     setItems(items.filter((item) => item.id !== itemId))
+  }
+
+  const addItemsFromScan = (scannedItems: Array<{ name: string; price: number; quantity: number }>) => {
+    const newItems = scannedItems.map((item, index) => ({
+      id: Date.now() + index,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity || 1,
+      assignedTo: [],
+    }))
+    setItems([...items, ...newItems])
   }
 
   const toggleItemAssignment = (itemId: number, personId: number) => {
@@ -260,7 +276,8 @@ const BillSplitter = () => {
 
     breakdown += 'Items:\n'
     items.forEach((item) => {
-      breakdown += `${item.name} - ${formatCurrency(
+      const qtyPrefix = item.quantity > 1 ? `${item.quantity}x ` : ''
+      breakdown += `${qtyPrefix}${item.name} - ${formatCurrency(
         item.price,
         defaultCurrency
       )}`
@@ -402,6 +419,10 @@ const BillSplitter = () => {
               <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100'>
                 Items
               </h2>
+              <BillScanner
+                onItemsConfirmed={addItemsFromScan}
+                disabled={people.length === 0}
+              />
               <div className='flex gap-2 mb-3'>
                 <input
                   type='text'
@@ -409,6 +430,14 @@ const BillSplitter = () => {
                   onChange={(e) => setNewItemName(e.target.value)}
                   placeholder='Item name'
                   className='flex-1 min-w-0 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
+                />
+                <input
+                  type='number'
+                  value={newItemQty}
+                  onChange={(e) => setNewItemQty(e.target.value)}
+                  placeholder='Qty'
+                  min='1'
+                  className='w-12 sm:w-14 flex-shrink-0 px-1 sm:px-2 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
                 />
                 <input
                   type='number'
@@ -435,6 +464,11 @@ const BillSplitter = () => {
                     <div className='flex items-center justify-between mb-2 gap-2'>
                       <div className='flex-1 min-w-0'>
                         <span className='font-medium dark:text-gray-100 text-sm sm:text-base break-words'>
+                          {item.quantity > 1 && (
+                            <span className='text-blue-600 dark:text-blue-400 mr-1'>
+                              {item.quantity}x
+                            </span>
+                          )}
                           {item.name}
                         </span>
                         <span className='text-gray-600 dark:text-gray-300 ml-2 text-sm sm:text-base whitespace-nowrap'>
@@ -761,6 +795,7 @@ const BillSplitter = () => {
                         {personItems.map((item) => (
                           <div key={item.id} className='flex justify-between'>
                             <span>
+                              {item.quantity > 1 && `${item.quantity}x `}
                               {item.name}{' '}
                               {item.assignedTo.length > 1
                                 ? `(split ${item.assignedTo.length})`
