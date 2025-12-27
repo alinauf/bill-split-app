@@ -493,7 +493,7 @@ const TelegramBillSplitter = () => {
             <div className='flex gap-2'>
               <div className='flex-1'>
                 <label className='text-xs text-gray-500 dark:text-gray-400 mb-1 block'>
-                  Price
+                  Unit Price
                 </label>
                 <input
                   type='text'
@@ -529,6 +529,12 @@ const TelegramBillSplitter = () => {
                 </button>
               </div>
             </div>
+            {/* Show calculated total */}
+            {newItemPrice && parseFloat(newItemPrice) > 0 && parseInt(newItemQty) > 1 && (
+              <div className='text-sm text-blue-600 dark:text-blue-400 font-medium'>
+                Total: {formatCurrency(parseFloat(newItemPrice) * (parseInt(newItemQty) || 1), defaultCurrency)}
+              </div>
+            )}
           </div>
 
           {/* Items List */}

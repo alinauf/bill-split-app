@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Plus, Users, Receipt, Download, Trash2 } from 'lucide-react'
+import { Plus, Users, Receipt, Download, Trash2, Share2 } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import BillScanner from './BillScanner'
 
@@ -52,6 +52,7 @@ const BillSplitter = () => {
   const [convertToCurrency, setConvertToCurrency] = useState('')
   const [customRate, setCustomRate] = useState('')
   const [defaultCurrency, setDefaultCurrency] = useState('MVR')
+  const [showCopiedToast, setShowCopiedToast] = useState(false)
 
   const exchangeRates: Record<string, number> = {
     USD: 1.0,
@@ -272,7 +273,7 @@ const BillSplitter = () => {
     return items.filter((item) => item.assignedTo.includes(personId))
   }
 
-  const exportBreakdown = () => {
+  const generateBreakdownText = (): string => {
     const totals = calculateTotals()
     let breakdown = 'Bill Breakdown\n'
     breakdown += '================\n\n'
@@ -349,6 +350,46 @@ const BillSplitter = () => {
       breakdown += '\n'
     })
 
+    return breakdown
+  }
+
+  const copyToClipboard = async () => {
+    const text = generateBreakdownText()
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const textArea = document.createElement('textarea')
+        textArea.value = text
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        textArea.style.top = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+      }
+
+      setShowCopiedToast(true)
+      setTimeout(() => setShowCopiedToast(false), 2000)
+    } catch {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'Bill Breakdown',
+            text: text,
+          })
+        } catch {
+          // User cancelled or share failed
+        }
+      }
+    }
+  }
+
+  const exportBreakdown = () => {
+    const breakdown = generateBreakdownText()
     const blob = new Blob([breakdown], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -451,7 +492,7 @@ const BillSplitter = () => {
                   </div>
                   <div className='flex items-center gap-1 flex-1'>
                     <span className='text-xs text-gray-500 dark:text-gray-400'>
-                      Price
+                      Unit Price
                     </span>
                     <input
                       type='number'
@@ -470,6 +511,12 @@ const BillSplitter = () => {
                     <Plus size={16} />
                   </button>
                 </div>
+                {/* Show calculated total */}
+                {newItemPrice && parseFloat(newItemPrice) > 0 && parseInt(newItemQty) > 1 && (
+                  <div className='text-sm text-blue-600 dark:text-blue-400 font-medium'>
+                    Total: {formatCurrency(parseFloat(newItemPrice) * (parseInt(newItemQty) || 1), defaultCurrency)}
+                  </div>
+                )}
               </div>
               <div className='space-y-3'>
                 {items.map((item) => (
@@ -861,17 +908,37 @@ const BillSplitter = () => {
               </div>
             </div>
 
-            <button
-              onClick={exportBreakdown}
-              className='w-full px-4 py-3 bg-gray-800 dark:bg-gray-700 text-white rounded-md hover:bg-gray-900 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base'
-              disabled={items.length === 0 || people.length === 0}
-            >
-              <Download size={16} />
-              Export Breakdown
-            </button>
+            <div className='flex gap-2'>
+              <button
+                onClick={copyToClipboard}
+                className='flex-1 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base'
+                disabled={items.length === 0 || people.length === 0}
+              >
+                <Share2 size={16} />
+                Copy
+              </button>
+              <button
+                onClick={exportBreakdown}
+                className='flex-1 px-4 py-3 bg-gray-800 dark:bg-gray-700 text-white rounded-md hover:bg-gray-900 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base'
+                disabled={items.length === 0 || people.length === 0}
+              >
+                <Download size={16} />
+                Export
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Copied Toast */}
+      {showCopiedToast && (
+        <div className='fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 animate-fade-in'>
+          <svg className='w-5 h-5 text-green-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
+          </svg>
+          <span className='text-sm font-medium'>Copied to clipboard!</span>
+        </div>
+      )}
     </>
   )
 }
