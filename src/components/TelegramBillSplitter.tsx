@@ -341,7 +341,7 @@ const TelegramBillSplitter = () => {
   const totals = calculateTotals()
 
   return (
-    <div className='min-h-screen bg-white dark:bg-gray-900 pb-20'>
+    <div className='min-h-screen bg-white dark:bg-gray-900 pb-24 safe-area-inset'>
       {/* Header */}
       <div className='sticky top-0 z-40 bg-blue-600 dark:bg-blue-800 text-white p-4 shadow-lg'>
         <div className='flex items-center justify-between'>
@@ -355,9 +355,9 @@ const TelegramBillSplitter = () => {
           <button
             onClick={shareBreakdown}
             disabled={items.length === 0 || people.length === 0}
-            className='p-2 bg-white/20 rounded-full hover:bg-white/30 disabled:opacity-50'
+            className='p-3 bg-white/20 rounded-full active:bg-white/30 disabled:opacity-50 touch-manipulation'
           >
-            <Share2 size={20} />
+            <Share2 size={22} />
           </button>
         </div>
       </div>
@@ -380,23 +380,24 @@ const TelegramBillSplitter = () => {
             />
             <button
               onClick={addPerson}
-              className='px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700'
+              disabled={!newPersonName.trim()}
+              className='px-5 py-3 bg-blue-600 text-white rounded-xl active:bg-blue-700 disabled:opacity-50 touch-manipulation'
             >
-              <Plus size={20} />
+              <Plus size={22} />
             </button>
           </div>
           <div className='flex flex-wrap gap-2'>
             {people.map((person) => (
               <div
                 key={person.id}
-                className='flex items-center gap-2 bg-white dark:bg-gray-700 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-600'
+                className='flex items-center gap-1 bg-white dark:bg-gray-700 pl-4 pr-2 py-2 rounded-full border border-gray-200 dark:border-gray-600'
               >
                 <span className='dark:text-gray-100 text-sm'>{person.name}</span>
                 <button
                   onClick={() => removePerson(person.id)}
-                  className='text-red-500 hover:text-red-700'
+                  className='text-red-500 active:text-red-700 p-1 touch-manipulation'
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             ))}
@@ -418,9 +419,9 @@ const TelegramBillSplitter = () => {
             <button
               onClick={handleScanClick}
               disabled={people.length === 0}
-              className='w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50'
+              className='w-full flex items-center justify-center gap-2 px-4 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl active:from-blue-600 active:to-purple-600 disabled:opacity-50 touch-manipulation text-base font-medium'
             >
-              <Lock size={18} />
+              <Lock size={20} />
               Unlock Bill Scanning
             </button>
           )}
@@ -434,37 +435,47 @@ const TelegramBillSplitter = () => {
         {/* Items Section */}
         <div className='bg-gray-50 dark:bg-gray-800 p-4 rounded-xl'>
           <h2 className='font-semibold mb-3 dark:text-gray-100'>Add Items</h2>
-          <div className='flex gap-2 mb-3'>
+          <div className='space-y-2 mb-3'>
             <input
               type='text'
               value={newItemName}
               onChange={(e) => setNewItemName(e.target.value)}
-              placeholder='Item'
-              className='flex-1 px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+              placeholder='Item name'
+              className='w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
             />
-            <input
-              type='number'
-              value={newItemQty}
-              onChange={(e) => setNewItemQty(e.target.value)}
-              placeholder='#'
-              min='1'
-              className='w-14 px-2 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-center'
-            />
-            <input
-              type='number'
-              value={newItemPrice}
-              onChange={(e) => setNewItemPrice(e.target.value)}
-              placeholder='Price'
-              step='0.01'
-              className='w-24 px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-            />
-            <button
-              onClick={addItem}
-              disabled={people.length === 0}
-              className='px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50'
-            >
-              <Plus size={20} />
-            </button>
+            <div className='flex gap-2'>
+              <div className='flex-1'>
+                <label className='text-xs text-gray-500 dark:text-gray-400 mb-1 block'>Price</label>
+                <input
+                  type='text'
+                  inputMode='decimal'
+                  value={newItemPrice}
+                  onChange={(e) => setNewItemPrice(e.target.value)}
+                  placeholder='0.00'
+                  className='w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                />
+              </div>
+              <div className='w-20'>
+                <label className='text-xs text-gray-500 dark:text-gray-400 mb-1 block'>Qty</label>
+                <input
+                  type='text'
+                  inputMode='numeric'
+                  value={newItemQty}
+                  onChange={(e) => setNewItemQty(e.target.value)}
+                  placeholder='1'
+                  className='w-full px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-center'
+                />
+              </div>
+              <div className='flex items-end'>
+                <button
+                  onClick={addItem}
+                  disabled={people.length === 0 || !newItemName.trim() || !newItemPrice}
+                  className='px-5 py-3 bg-green-600 text-white rounded-xl active:bg-green-700 disabled:opacity-50 touch-manipulation'
+                >
+                  <Plus size={22} />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Items List */}
@@ -490,9 +501,9 @@ const TelegramBillSplitter = () => {
                   </div>
                   <button
                     onClick={() => removeItem(item.id)}
-                    className='text-red-500 hover:text-red-700 p-1'
+                    className='text-red-500 active:text-red-700 p-2 -mr-1 touch-manipulation'
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={18} />
                   </button>
                 </div>
                 <div className='flex flex-wrap gap-2'>
@@ -500,7 +511,7 @@ const TelegramBillSplitter = () => {
                     <button
                       key={person.id}
                       onClick={() => toggleItemAssignment(item.id, person.id)}
-                      className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                      className={`px-4 py-2 text-sm rounded-full transition-colors touch-manipulation ${
                         item.assignedTo.includes(person.id)
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200'
@@ -692,9 +703,10 @@ const TelegramBillSplitter = () => {
       {items.length > 0 && people.length > 0 && (
         <button
           onClick={shareBreakdown}
-          className='fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 z-50'
+          className='fixed bottom-6 right-4 w-16 h-16 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center active:bg-blue-700 z-50 touch-manipulation'
+          style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
-          <Share2 size={24} />
+          <Share2 size={26} />
         </button>
       )}
 
