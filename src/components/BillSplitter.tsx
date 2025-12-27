@@ -200,7 +200,7 @@ const BillSplitter = () => {
   }
 
   const calculateTotals = (): Totals => {
-    const subtotal = items.reduce((sum, item) => sum + item.price, 0)
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
     let discountAmount = 0
     if (discountValue) {
@@ -242,12 +242,13 @@ const BillSplitter = () => {
     items.forEach((item) => {
       if (item.assignedTo.includes(personId)) {
         const shareCount = item.assignedTo.length
-        personTotal += item.price / shareCount
+        const itemTotal = item.price * item.quantity
+        personTotal += itemTotal / shareCount
       }
     })
 
     const totals = calculateTotals()
-    const subtotal = items.reduce((sum, item) => sum + item.price, 0)
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
     if (subtotal > 0) {
       const ratio = personTotal / subtotal
@@ -279,8 +280,9 @@ const BillSplitter = () => {
     breakdown += 'Items:\n'
     items.forEach((item) => {
       const qtyPrefix = item.quantity > 1 ? `${item.quantity}x ` : ''
+      const itemTotal = item.price * item.quantity
       breakdown += `${qtyPrefix}${item.name} - ${formatCurrency(
-        item.price,
+        itemTotal,
         defaultCurrency
       )}`
       if (item.assignedTo.length > 0) {
@@ -486,7 +488,7 @@ const BillSplitter = () => {
                           {item.name}
                         </span>
                         <span className='text-gray-600 dark:text-gray-300 ml-2 text-sm sm:text-base whitespace-nowrap'>
-                          {formatCurrency(item.price, defaultCurrency)}
+                          {formatCurrency(item.price * item.quantity, defaultCurrency)}
                         </span>
                       </div>
                       <button
@@ -497,6 +499,32 @@ const BillSplitter = () => {
                       </button>
                     </div>
                     <div className='flex flex-wrap gap-1.5'>
+                      <button
+                        onClick={() => {
+                          const allAssigned = people.every((p) =>
+                            item.assignedTo.includes(p.id)
+                          )
+                          setItems(
+                            items.map((i) =>
+                              i.id === item.id
+                                ? {
+                                    ...i,
+                                    assignedTo: allAssigned
+                                      ? []
+                                      : people.map((p) => p.id),
+                                  }
+                                : i
+                            )
+                          )
+                        }}
+                        className={`px-2 py-1 text-xs sm:text-sm rounded transition-colors whitespace-nowrap font-medium ${
+                          people.every((p) => item.assignedTo.includes(p.id))
+                            ? 'bg-green-600 text-white'
+                            : 'bg-gray-300 dark:bg-gray-500 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-400'
+                        }`}
+                      >
+                        All
+                      </button>
                       {people.map((person) => (
                         <button
                           key={person.id}
@@ -806,23 +834,26 @@ const BillSplitter = () => {
                         </div>
                       </div>
                       <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-400'>
-                        {personItems.map((item) => (
-                          <div key={item.id} className='flex justify-between'>
-                            <span>
-                              {item.quantity > 1 && `${item.quantity}x `}
-                              {item.name}{' '}
-                              {item.assignedTo.length > 1
-                                ? `(split ${item.assignedTo.length})`
-                                : ''}
-                            </span>
-                            <span>
-                              {formatCurrency(
-                                item.price / item.assignedTo.length,
-                                defaultCurrency
-                              )}
-                            </span>
-                          </div>
-                        ))}
+                        {personItems.map((item) => {
+                          const itemTotal = item.price * item.quantity
+                          return (
+                            <div key={item.id} className='flex justify-between'>
+                              <span>
+                                {item.quantity > 1 && `${item.quantity}x `}
+                                {item.name}{' '}
+                                {item.assignedTo.length > 1
+                                  ? `(split ${item.assignedTo.length})`
+                                  : ''}
+                              </span>
+                              <span>
+                                {formatCurrency(
+                                  itemTotal / item.assignedTo.length,
+                                  defaultCurrency
+                                )}
+                              </span>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )

@@ -99,6 +99,7 @@ const TelegramBillSplitter = () => {
   const [showSettings, setShowSettings] = useState(false)
   const [scanAccessGranted, setScanAccessGranted] = useState(false)
   const [showAccessModal, setShowAccessModal] = useState(false)
+  const [showCopiedToast, setShowCopiedToast] = useState(false)
 
   // Initialize Telegram WebApp and get user data
   useEffect(() => {
@@ -229,7 +230,7 @@ const TelegramBillSplitter = () => {
   }
 
   const calculateTotals = (): Totals => {
-    const subtotal = items.reduce((sum, item) => sum + item.price, 0)
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
     let discountAmount = 0
     if (discountValue) {
@@ -269,12 +270,13 @@ const TelegramBillSplitter = () => {
     items.forEach((item) => {
       if (item.assignedTo.includes(personId)) {
         const shareCount = item.assignedTo.length
-        personTotal += item.price / shareCount
+        const itemTotal = item.price * item.quantity
+        personTotal += itemTotal / shareCount
       }
     })
 
     const totals = calculateTotals()
-    const subtotal = items.reduce((sum, item) => sum + item.price, 0)
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
     if (subtotal > 0) {
       const ratio = personTotal / subtotal
@@ -305,8 +307,9 @@ const TelegramBillSplitter = () => {
     breakdown += '📋 Items:\n'
     items.forEach((item) => {
       const qtyPrefix = item.quantity > 1 ? `${item.quantity}x ` : ''
+      const itemTotal = item.price * item.quantity
       breakdown += `• ${qtyPrefix}${item.name} - ${formatCurrency(
-        item.price,
+        itemTotal,
         defaultCurrency
       )}\n`
     })
@@ -328,28 +331,42 @@ const TelegramBillSplitter = () => {
     return breakdown
   }
 
-  const shareBreakdown = async () => {
+  const copyToClipboard = async () => {
     const text = generateBreakdownText()
 
-    // Try Web Share API first (works in Telegram and mobile browsers)
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Bill Breakdown',
-          text: text,
-        })
-        return
-      } catch {
-        // User cancelled or share failed
-      }
-    }
-
-    // Fallback: copy to clipboard
     try {
-      await navigator.clipboard.writeText(text)
-      alert('Bill breakdown copied to clipboard!')
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        // Fallback for older browsers/WebViews
+        const textArea = document.createElement('textarea')
+        textArea.value = text
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        textArea.style.top = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+      }
+
+      // Show success toast
+      setShowCopiedToast(true)
+      setTimeout(() => setShowCopiedToast(false), 2000)
     } catch {
-      alert('Could not share. Please copy manually.')
+      // Last resort: try Web Share API
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'Bill Breakdown',
+            text: text,
+          })
+        } catch {
+          // User cancelled or share failed
+        }
+      }
     }
   }
 
@@ -381,7 +398,7 @@ const TelegramBillSplitter = () => {
             </div>
           </div>
           <button
-            onClick={shareBreakdown}
+            onClick={copyToClipboard}
             disabled={items.length === 0 || people.length === 0}
             className='p-3 bg-white/20 rounded-full active:bg-white/30 disabled:opacity-50 touch-manipulation'
           >
@@ -532,7 +549,7 @@ const TelegramBillSplitter = () => {
                       {item.name}
                     </span>
                     <span className='text-gray-600 dark:text-gray-300 ml-2'>
-                      {formatCurrency(item.price, defaultCurrency)}
+                      {formatCurrency(item.price * item.quantity, defaultCurrency)}
                     </span>
                   </div>
                   <button
@@ -543,6 +560,32 @@ const TelegramBillSplitter = () => {
                   </button>
                 </div>
                 <div className='flex flex-wrap gap-2'>
+                  <button
+                    onClick={() => {
+                      const allAssigned = people.every((p) =>
+                        item.assignedTo.includes(p.id)
+                      )
+                      setItems(
+                        items.map((i) =>
+                          i.id === item.id
+                            ? {
+                                ...i,
+                                assignedTo: allAssigned
+                                  ? []
+                                  : people.map((p) => p.id),
+                              }
+                            : i
+                        )
+                      )
+                    }}
+                    className={`px-4 py-2 text-sm rounded-full transition-colors touch-manipulation font-medium ${
+                      people.every((p) => item.assignedTo.includes(p.id))
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-300 dark:bg-gray-500 text-gray-700 dark:text-gray-200'
+                    }`}
+                  >
+                    All
+                  </button>
                   {people.map((person) => (
                     <button
                       key={person.id}
@@ -727,22 +770,25 @@ const TelegramBillSplitter = () => {
                     </div>
                     {personItems.length > 0 && (
                       <div className='mt-2 text-xs text-gray-500 dark:text-gray-400'>
-                        {personItems.map((item) => (
-                          <div key={item.id} className='flex justify-between'>
-                            <span>
-                              {item.quantity > 1 && `${item.quantity}x `}
-                              {item.name}
-                              {item.assignedTo.length > 1 &&
-                                ` (÷${item.assignedTo.length})`}
-                            </span>
-                            <span>
-                              {formatCurrency(
-                                item.price / item.assignedTo.length,
-                                defaultCurrency
-                              )}
-                            </span>
-                          </div>
-                        ))}
+                        {personItems.map((item) => {
+                          const itemTotal = item.price * item.quantity
+                          return (
+                            <div key={item.id} className='flex justify-between'>
+                              <span>
+                                {item.quantity > 1 && `${item.quantity}x `}
+                                {item.name}
+                                {item.assignedTo.length > 1 &&
+                                  ` (÷${item.assignedTo.length})`}
+                              </span>
+                              <span>
+                                {formatCurrency(
+                                  itemTotal / item.assignedTo.length,
+                                  defaultCurrency
+                                )}
+                              </span>
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -753,15 +799,25 @@ const TelegramBillSplitter = () => {
         )}
       </div>
 
-      {/* Share FAB */}
+      {/* Copy FAB */}
       {items.length > 0 && people.length > 0 && (
         <button
-          onClick={shareBreakdown}
+          onClick={copyToClipboard}
           className='fixed bottom-6 right-4 w-16 h-16 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center active:bg-blue-700 z-50 touch-manipulation'
           style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           <Share2 size={26} />
         </button>
+      )}
+
+      {/* Copied Toast */}
+      {showCopiedToast && (
+        <div className='fixed top-20 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 animate-fade-in'>
+          <svg className='w-5 h-5 text-green-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
+          </svg>
+          <span className='text-sm font-medium'>Copied to clipboard!</span>
+        </div>
       )}
 
       {/* Access Code Modal */}
