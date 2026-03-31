@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Plus, Users, Receipt, Download, Trash2, Share2 } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import BillScanner from './BillScanner'
@@ -34,6 +34,24 @@ interface Totals {
   total: number
 }
 
+function loadFromStorage<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const stored = localStorage.getItem(key)
+    return stored ? JSON.parse(stored) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function saveToStorage<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
 const BillSplitter = () => {
   const [people, setPeople] = useState<Person[]>([])
   const [items, setItems] = useState<Item[]>([])
@@ -53,6 +71,11 @@ const BillSplitter = () => {
   const [customRate, setCustomRate] = useState('')
   const [defaultCurrency, setDefaultCurrency] = useState('MVR')
   const [showCopiedToast, setShowCopiedToast] = useState(false)
+  const [savedNames, setSavedNames] = useState<string[]>([])
+
+  useEffect(() => {
+    setSavedNames(loadFromStorage<string[]>('billsplit-saved-names', []))
+  }, [])
 
   const exchangeRates: Record<string, number> = {
     USD: 1.0,
@@ -131,10 +154,17 @@ const BillSplitter = () => {
     return currency ? currency.symbol : defaultCurrency
   }
 
-  const addPerson = () => {
-    if (newPersonName.trim()) {
-      setPeople([...people, { id: Date.now(), name: newPersonName.trim() }])
+  const addPerson = (name?: string) => {
+    const trimmed = (name || newPersonName).trim()
+    if (trimmed) {
+      setPeople([...people, { id: Date.now(), name: trimmed }])
       setNewPersonName('')
+      setSavedNames(prev => {
+        const without = prev.filter(n => n !== trimmed)
+        const updated = [trimmed, ...without].slice(0, 8)
+        saveToStorage('billsplit-saved-names', updated)
+        return updated
+      })
     }
   }
 
@@ -434,12 +464,30 @@ const BillSplitter = () => {
                   onKeyPress={(e) => e.key === 'Enter' && addPerson()}
                 />
                 <button
-                  onClick={addPerson}
+                  onClick={() => addPerson()}
                   className='flex-shrink-0 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
                 >
                   <Plus size={16} />
                 </button>
               </div>
+              {savedNames.filter(name => !people.some(p => p.name === name)).length > 0 && (
+                <div className='mb-3'>
+                  <div className='flex flex-wrap gap-1.5'>
+                    {savedNames
+                      .filter(name => !people.some(p => p.name === name))
+                      .slice(0, 8)
+                      .map(name => (
+                        <button
+                          key={name}
+                          onClick={() => addPerson(name)}
+                          className='px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors'
+                        >
+                          {name}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
               <div className='space-y-2'>
                 {people.map((person) => (
                   <div
