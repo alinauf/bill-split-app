@@ -39,6 +39,15 @@ interface Totals {
   total: number
 }
 
+interface SplitHistoryEntry {
+  id: string
+  date: string
+  currency: string
+  people: { name: string; total: number }[]
+  total: number
+  breakdownText: string
+}
+
 function loadFromStorage<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback
   try {
@@ -78,9 +87,11 @@ const BillSplitter = () => {
   const [showCopiedToast, setShowCopiedToast] = useState(false)
   const [savedNames, setSavedNames] = useState<string[]>([])
   const [adjustingItems, setAdjustingItems] = useState<Set<number>>(new Set())
+  const [splitHistory, setSplitHistory] = useState<SplitHistoryEntry[]>([])
 
   useEffect(() => {
     setSavedNames(loadFromStorage<string[]>('billsplit-saved-names', []))
+    setSplitHistory(loadFromStorage<SplitHistoryEntry[]>('billsplit-history', []))
   }, [])
 
   const exchangeRates: Record<string, number> = {
@@ -428,6 +439,7 @@ const BillSplitter = () => {
         document.body.removeChild(textArea)
       }
 
+      saveToHistory()
       setShowCopiedToast(true)
       setTimeout(() => setShowCopiedToast(false), 2000)
     } catch {
@@ -455,6 +467,47 @@ const BillSplitter = () => {
     a.click()
     document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 100)
+    saveToHistory()
+  }
+
+  const saveToHistory = () => {
+    const t = calculateTotals()
+    const entry: SplitHistoryEntry = {
+      id: new Date().toISOString(),
+      date: new Date().toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      }),
+      currency: defaultCurrency,
+      people: people.map(p => ({
+        name: p.name,
+        total: calculatePersonTotal(p.id),
+      })),
+      total: t.total,
+      breakdownText: generateBreakdownText(),
+    }
+    setSplitHistory(prev => {
+      const updated = [entry, ...prev].slice(0, 3)
+      saveToStorage('billsplit-history', updated)
+      return updated
+    })
+  }
+
+  const clearHistory = () => {
+    setSplitHistory([])
+    setSavedNames([])
+    saveToStorage('billsplit-history', [])
+    saveToStorage('billsplit-saved-names', [])
+  }
+
+  const copyHistoryEntry = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setShowCopiedToast(true)
+      setTimeout(() => setShowCopiedToast(false), 2000)
+    } catch {
+      // Clipboard not available
+    }
   }
 
   const totals = calculateTotals()
@@ -1093,6 +1146,43 @@ const BillSplitter = () => {
                 Export
               </button>
             </div>
+
+            {splitHistory.length > 0 && (
+              <div className='bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg'>
+                <div className='flex items-center justify-between mb-3'>
+                  <h2 className='text-base sm:text-lg font-semibold dark:text-gray-100'>
+                    Recent Splits
+                  </h2>
+                  <button
+                    onClick={clearHistory}
+                    className='text-xs text-red-500 hover:text-red-700 transition-colors'
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <div className='space-y-2'>
+                  {splitHistory.map(entry => (
+                    <div key={entry.id} className='bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600'>
+                      <div className='flex justify-between items-center mb-1'>
+                        <span className='text-xs text-gray-500 dark:text-gray-400'>{entry.date}</span>
+                        <span className='font-medium text-sm dark:text-gray-100'>
+                          {formatCurrency(entry.total, entry.currency)}
+                        </span>
+                      </div>
+                      <div className='text-xs text-gray-600 dark:text-gray-400 mb-2'>
+                        {entry.people.map(p => `${p.name}: ${formatCurrency(p.total, entry.currency)}`).join(', ')}
+                      </div>
+                      <button
+                        onClick={() => copyHistoryEntry(entry.breakdownText)}
+                        className='text-xs text-blue-600 dark:text-blue-400 hover:underline'
+                      >
+                        Copy breakdown
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
