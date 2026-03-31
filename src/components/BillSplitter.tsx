@@ -10,12 +10,17 @@ interface Person {
   name: string
 }
 
+interface ItemShare {
+  personId: number
+  share: number
+}
+
 interface Item {
   id: number
   name: string
   price: number
   quantity: number
-  assignedTo: number[]
+  shares: ItemShare[]
 }
 
 interface Currency {
@@ -72,6 +77,7 @@ const BillSplitter = () => {
   const [defaultCurrency, setDefaultCurrency] = useState('MVR')
   const [showCopiedToast, setShowCopiedToast] = useState(false)
   const [savedNames, setSavedNames] = useState<string[]>([])
+  const [adjustingItems, setAdjustingItems] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     setSavedNames(loadFromStorage<string[]>('billsplit-saved-names', []))
@@ -173,7 +179,7 @@ const BillSplitter = () => {
     setItems(
       items.map((item) => ({
         ...item,
-        assignedTo: item.assignedTo.filter((id) => id !== personId),
+        shares: item.shares.filter((s) => s.personId !== personId),
       }))
     )
   }
@@ -187,7 +193,7 @@ const BillSplitter = () => {
           name: newItemName.trim(),
           price: parseFloat(newItemPrice),
           quantity: parseInt(newItemQty) || 1,
-          assignedTo: [],
+          shares: [],
         },
       ])
       setNewItemName('')
@@ -208,7 +214,7 @@ const BillSplitter = () => {
       name: item.name,
       price: item.quantity > 1 ? item.price / item.quantity : item.price,
       quantity: item.quantity || 1,
-      assignedTo: [],
+      shares: [],
     }))
     setItems([...items, ...newItems])
   }
@@ -217,17 +223,31 @@ const BillSplitter = () => {
     setItems(
       items.map((item) => {
         if (item.id === itemId) {
-          const isAssigned = item.assignedTo.includes(personId)
+          const existing = item.shares.findIndex(s => s.personId === personId)
           return {
             ...item,
-            assignedTo: isAssigned
-              ? item.assignedTo.filter((id) => id !== personId)
-              : [...item.assignedTo, personId],
+            shares: existing >= 0
+              ? item.shares.filter(s => s.personId !== personId)
+              : [...item.shares, { personId, share: 1 }],
           }
         }
         return item
       })
     )
+  }
+
+  const updateShare = (itemId: number, personId: number, newShare: number) => {
+    setItems(items.map(item => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          shares: item.shares.map(s =>
+            s.personId === personId ? { ...s, share: newShare } : s
+          ),
+        }
+      }
+      return item
+    }))
   }
 
   const calculateTotals = (): Totals => {
@@ -271,10 +291,11 @@ const BillSplitter = () => {
     let personTotal = 0
 
     items.forEach((item) => {
-      if (item.assignedTo.includes(personId)) {
-        const shareCount = item.assignedTo.length
+      const personShare = item.shares.find(s => s.personId === personId)
+      if (personShare) {
+        const totalShares = item.shares.reduce((sum, s) => sum + s.share, 0)
         const itemTotal = item.price * item.quantity
-        personTotal += itemTotal / shareCount
+        personTotal += totalShares > 0 ? itemTotal * (personShare.share / totalShares) : 0
       }
     })
 
@@ -300,7 +321,7 @@ const BillSplitter = () => {
   }
 
   const getPersonItems = (personId: number): Item[] => {
-    return items.filter((item) => item.assignedTo.includes(personId))
+    return items.filter((item) => item.shares.some(s => s.personId === personId))
   }
 
   const generateBreakdownText = (): string => {
@@ -316,9 +337,14 @@ const BillSplitter = () => {
         itemTotal,
         defaultCurrency
       )}`
-      if (item.assignedTo.length > 0) {
-        const assignedNames = item.assignedTo
-          .map((id) => people.find((p) => p.id === id)?.name || 'Unknown')
+      if (item.shares.length > 0) {
+        const isEqual = item.shares.every(s => s.share === item.shares[0].share)
+        const totalShares = item.shares.reduce((sum, s) => sum + s.share, 0)
+        const assignedNames = item.shares
+          .map((s) => {
+            const name = people.find((p) => p.id === s.personId)?.name || 'Unknown'
+            return isEqual ? name : `${name}: ${s.share}/${totalShares}`
+          })
           .join(', ')
         breakdown += ` (${assignedNames})`
       }
@@ -622,23 +648,23 @@ const BillSplitter = () => {
                       <button
                         onClick={() => {
                           const allAssigned = people.every((p) =>
-                            item.assignedTo.includes(p.id)
+                            item.shares.some(s => s.personId === p.id)
                           )
                           setItems(
                             items.map((i) =>
                               i.id === item.id
                                 ? {
                                     ...i,
-                                    assignedTo: allAssigned
+                                    shares: allAssigned
                                       ? []
-                                      : people.map((p) => p.id),
+                                      : people.map((p) => ({ personId: p.id, share: 1 })),
                                   }
                                 : i
                             )
                           )
                         }}
                         className={`px-2 py-1 text-xs sm:text-sm rounded transition-colors whitespace-nowrap font-medium ${
-                          people.every((p) => item.assignedTo.includes(p.id))
+                          people.every((p) => item.shares.some(s => s.personId === p.id))
                             ? 'bg-green-600 text-white'
                             : 'bg-gray-300 dark:bg-gray-500 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-400'
                         }`}
@@ -652,7 +678,7 @@ const BillSplitter = () => {
                             toggleItemAssignment(item.id, person.id)
                           }
                           className={`px-2 py-1 text-xs sm:text-sm rounded transition-colors whitespace-nowrap ${
-                            item.assignedTo.includes(person.id)
+                            item.shares.some(s => s.personId === person.id)
                               ? 'bg-blue-600 text-white'
                               : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
                           }`}
@@ -661,6 +687,68 @@ const BillSplitter = () => {
                         </button>
                       ))}
                     </div>
+                    {item.shares.length > 1 && (() => {
+                      const totalShares = item.shares.reduce((sum, sh) => sum + sh.share, 0)
+                      const isEqual = item.shares.every(s => s.share === item.shares[0].share)
+                      const isAdjusting = adjustingItems.has(item.id)
+                      const itemTotal = item.price * item.quantity
+                      return (
+                        <div className='mt-2'>
+                          <button
+                            onClick={() => setAdjustingItems(prev => {
+                              const next = new Set(prev)
+                              if (next.has(item.id)) next.delete(item.id)
+                              else next.add(item.id)
+                              return next
+                            })}
+                            className='text-[11px] text-blue-600 dark:text-blue-400 hover:underline mb-1'
+                          >
+                            {isAdjusting ? 'Hide' : isEqual ? 'Adjust split' : 'Adjust split (unequal)'}
+                          </button>
+                          {isAdjusting && (
+                            <div className='space-y-1.5'>
+                              <div className='flex justify-end text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide'>
+                                <div className='flex items-center gap-4'>
+                                  <span>Parts</span>
+                                  <span className='w-16 text-right'>Pays</span>
+                                </div>
+                              </div>
+                              {item.shares.map(s => {
+                                const person = people.find(p => p.id === s.personId)
+                                const personAmount = totalShares > 0 ? itemTotal * (s.share / totalShares) : 0
+                                return (
+                                  <div key={s.personId} className='flex items-center justify-between text-xs'>
+                                    <span className='text-gray-600 dark:text-gray-400'>{person?.name}</span>
+                                    <div className='flex items-center gap-4'>
+                                      <div className='flex items-center gap-1'>
+                                        <button
+                                          onClick={() => updateShare(item.id, s.personId, Math.max(1, s.share - 1))}
+                                          className='w-5 h-5 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-xs'
+                                        >
+                                          -
+                                        </button>
+                                        <span className='w-4 text-center font-medium dark:text-gray-200'>
+                                          {s.share}
+                                        </span>
+                                        <button
+                                          onClick={() => updateShare(item.id, s.personId, s.share + 1)}
+                                          className='w-5 h-5 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-xs'
+                                        >
+                                          +
+                                        </button>
+                                      </div>
+                                      <span className='w-16 text-right text-gray-500 dark:text-gray-400'>
+                                        {formatCurrency(personAmount, defaultCurrency)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 ))}
               </div>
@@ -956,18 +1044,24 @@ const BillSplitter = () => {
                       <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-400'>
                         {personItems.map((item) => {
                           const itemTotal = item.price * item.quantity
+                          const personShareObj = item.shares.find(s => s.personId === person.id)
+                          const totalShares = item.shares.reduce((sum, s) => sum + s.share, 0)
+                          const personFraction = personShareObj && totalShares > 0 ? personShareObj.share / totalShares : 0
+                          const isEqual = item.shares.every(s => s.share === item.shares[0]?.share)
                           return (
                             <div key={item.id} className='flex justify-between'>
                               <span>
                                 {item.quantity > 1 && `${item.quantity}x `}
                                 {item.name}{' '}
-                                {item.assignedTo.length > 1
-                                  ? `(split ${item.assignedTo.length})`
+                                {item.shares.length > 1
+                                  ? isEqual
+                                    ? `(split ${item.shares.length})`
+                                    : `(${personShareObj?.share}/${totalShares})`
                                   : ''}
                               </span>
                               <span>
                                 {formatCurrency(
-                                  itemTotal / item.assignedTo.length,
+                                  itemTotal * personFraction,
                                   defaultCurrency
                                 )}
                               </span>
