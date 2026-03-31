@@ -176,7 +176,7 @@ const BillSplitter = () => {
     const newItems = scannedItems.map((item, index) => ({
       id: Date.now() + index,
       name: item.name,
-      price: item.price,
+      price: item.quantity > 1 ? item.price / item.quantity : item.price,
       quantity: item.quantity || 1,
       assignedTo: [],
     }))
