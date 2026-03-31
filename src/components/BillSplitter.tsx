@@ -87,6 +87,7 @@ const BillSplitter = () => {
   const [showCopiedToast, setShowCopiedToast] = useState(false)
   const [savedNames, setSavedNames] = useState<string[]>([])
   const [adjustingItems, setAdjustingItems] = useState<Set<number>>(new Set())
+  const [paidBy, setPaidBy] = useState<number | null>(null)
   const [splitHistory, setSplitHistory] = useState<SplitHistoryEntry[]>([])
 
   useEffect(() => {
@@ -193,6 +194,7 @@ const BillSplitter = () => {
         shares: item.shares.filter((s) => s.personId !== personId),
       }))
     )
+    if (paidBy === personId) setPaidBy(null)
   }
 
   const addItem = () => {
@@ -416,6 +418,11 @@ const BillSplitter = () => {
       }
       breakdown += '\n'
     })
+
+    if (paidBy !== null) {
+      const payerName = people.find(p => p.id === paidBy)?.name || 'Unknown'
+      breakdown += `\nPaid by: ${payerName}\n`
+    }
 
     return breakdown
   }
@@ -1058,9 +1065,23 @@ const BillSplitter = () => {
             </div>
 
             <div className='bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-lg'>
-              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100'>
-                Per Person
-              </h2>
+              <div className='flex items-center justify-between mb-3'>
+                <h2 className='text-base sm:text-lg font-semibold dark:text-gray-100'>
+                  Per Person
+                </h2>
+                {people.length > 0 && (
+                  <select
+                    value={paidBy ?? ''}
+                    onChange={(e) => setPaidBy(e.target.value ? Number(e.target.value) : null)}
+                    className='text-xs sm:text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
+                  >
+                    <option value=''>Who paid?</option>
+                    {people.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <div className='space-y-3'>
                 {people.map((person) => {
                   const personTotal = calculatePersonTotal(person.id)
@@ -1122,6 +1143,11 @@ const BillSplitter = () => {
                           )
                         })}
                       </div>
+                      {paidBy === person.id && (
+                        <div className='mt-2 text-xs font-medium text-green-600 dark:text-green-400'>
+                          Paid the bill
+                        </div>
+                      )}
                     </div>
                   )
                 })}
