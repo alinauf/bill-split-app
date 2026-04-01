@@ -239,7 +239,7 @@ export default function ScanReviewModal({
                         />
                       </div>
                       <div className="flex items-center gap-1 flex-1 min-w-[100px]">
-                        <span className="text-gray-500 dark:text-gray-400 text-xs">$</span>
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">Line $</span>
                         <input
                           type="number"
                           value={item.price}
