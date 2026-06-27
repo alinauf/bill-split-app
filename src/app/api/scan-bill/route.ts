@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       messages: [
         {
@@ -184,6 +184,12 @@ Output ONLY valid JSON in this exact format (no markdown, no code blocks, just r
       if (error.status === 401) {
         return NextResponse.json(
           { error: 'API key not configured. Please check server configuration.' },
+          { status: 500 }
+        )
+      }
+      if (error.status === 404) {
+        return NextResponse.json(
+          { error: 'AI model not available. The configured model may be retired or misspelled.' },
           { status: 500 }
         )
       }
