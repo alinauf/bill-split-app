@@ -22,6 +22,51 @@ function isIOS(): boolean {
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 }
 
+// Serverless platforms cap request bodies around 4.5MB, and base64 adds ~33%
+// overhead, so keep the encoded image comfortably under that.
+const MAX_DIMENSION = 1568
+const MAX_UPLOAD_BYTES = 2.5 * 1024 * 1024
+
+function canvasToJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality))
+}
+
+// Downscale and re-encode the image so the base64 payload stays under the
+// server's request body limit. Phone cameras produce 4000px+ photos that
+// otherwise get rejected with a 413.
+async function compressImage(source: Blob): Promise<Blob> {
+  const bitmap = await createImageBitmap(source)
+  const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height))
+  const width = Math.max(1, Math.round(bitmap.width * scale))
+  const height = Math.max(1, Math.round(bitmap.height * scale))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas not supported')
+  ctx.drawImage(bitmap, 0, 0, width, height)
+  bitmap.close()
+
+  let quality = 0.85
+  let blob = await canvasToJpeg(canvas, quality)
+  while (blob && blob.size > MAX_UPLOAD_BYTES && quality > 0.4) {
+    quality -= 0.15
+    blob = await canvasToJpeg(canvas, quality)
+  }
+  if (!blob) throw new Error('Failed to encode image')
+  return blob
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve((reader.result as string).split(',')[1])
+    reader.onerror = () => reject(new Error('Failed to read image'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 export default function BillScanner({
   onItemsConfirmed,
   disabled = false,
@@ -115,22 +160,24 @@ export default function BillScanner({
       const previewUrl = URL.createObjectURL(blob)
       setPreviewUrl(previewUrl)
 
-      // Convert to base64 and send to API
-      const reader = new FileReader()
-      reader.onload = async () => {
-        const base64 = (reader.result as string).split(',')[1]
+      try {
+        const compressed = await compressImage(blob)
+        const base64 = await blobToBase64(compressed)
         await sendToApi(base64, 'image/jpeg')
+      } catch (err) {
+        console.error('Image processing error:', err)
+        setError('Failed to process photo. Please try again.')
+        setPreviewUrl(null)
       }
-      reader.readAsDataURL(blob)
     }, 'image/jpeg', 0.9)
   }, [stopCamera])
 
   const processImage = async (file: File) => {
     setError(null)
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image too large. Please use an image under 5MB.')
+    // Generous limit — the image is compressed before upload
+    if (file.size > 20 * 1024 * 1024) {
+      setError('Image too large. Please use an image under 20MB.')
       return
     }
 
@@ -145,17 +192,15 @@ export default function BillScanner({
     const previewUrl = URL.createObjectURL(file)
     setPreviewUrl(previewUrl)
 
-    // Convert to base64
-    const reader = new FileReader()
-    reader.onload = async () => {
-      const base64 = (reader.result as string).split(',')[1]
-      await sendToApi(base64, file.type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp')
-    }
-    reader.onerror = () => {
+    try {
+      const compressed = await compressImage(file)
+      const base64 = await blobToBase64(compressed)
+      await sendToApi(base64, 'image/jpeg')
+    } catch (err) {
+      console.error('Image processing error:', err)
       setError('Failed to read image file.')
       setPreviewUrl(null)
     }
-    reader.readAsDataURL(file)
   }
 
   const sendToApi = async (
@@ -177,10 +222,25 @@ export default function BillScanner({
         }),
       })
 
-      const data = await response.json()
+      // Error responses may be plain text (e.g. "Request Entity Too Large"
+      // from the platform), so don't assume JSON
+      const text = await response.text()
+      let data: { error?: string; items?: ScannedItem[]; warnings?: string[] } | null = null
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = null
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to scan bill')
+        if (response.status === 413) {
+          throw new Error('Photo is too large to upload. Please try again with a smaller image.')
+        }
+        throw new Error(data?.error || `Failed to scan bill (error ${response.status}). Please try again.`)
+      }
+
+      if (!data) {
+        throw new Error('Unexpected response from server. Please try again.')
       }
 
       if (data.items && data.items.length > 0) {
