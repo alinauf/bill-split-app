@@ -55,11 +55,21 @@ The dev server runs on http://localhost:3000 with hot-reloading enabled.
 - Offline support enabled (disabled in development mode)
 - Regenerate icons: `node scripts/generate-icons.mjs`
 
+**State** (`src/hooks/useBill.ts`): one hook owns the bill draft (people, items,
+extras, currency, payer), autosaves it to localStorage (`billsplit-draft`), and
+exposes every action plus derived totals/shares. Both entry points use it.
+
 **Components** (all client components in `src/components/`):
-- `BillSplitter.tsx` - Orchestrator: owns the bill draft state, autosaves it to
-  localStorage (`billsplit-draft`), and picks a layout with `useMediaQuery`:
-  - phones (< 768px): receipt-style list of `ItemRow`s with a `StickyBar`
-  - wide screens: `SplitGrid` table (items x people) with a pinned summary column
+- `BillSplitter.tsx` - Web app shell (`/`): header with theme toggle, `PeopleBar`,
+  and a layout picked with `useMediaQuery` from `BillViews.tsx`:
+  - phones (< 768px): `ReceiptView` (list of `ItemRow`s) with a `StickyBar`
+  - wide screens: `GridView` (`SplitGrid` items x people table, pinned summary column)
+- `TelegramBillSplitter.tsx` - Telegram mini app shell (`/telegram-bot`): same
+  `ReceiptView`, plus WebApp init/expand, colour-scheme sync, light haptics on
+  assignment, "Send breakdown to a chat" via `t.me/share/url`, and the scan
+  access-code gate (`AccessCodeModal` + `/api/verify-access`, sessionStorage)
+- `ScannerBlock.tsx` - "Scan a receipt" link that expands into `BillScanner`
+  (accepts a `locked` node for the Telegram gate)
 - `PeopleBar.tsx` - Colour-coded person chips (rename on tap, remove, recent names)
 - `ItemRow.tsx` / `SplitGrid.tsx` - Item lists with tap-to-assign avatars, inline
   editing via `ItemEditor.tsx`, and amber highlighting for unassigned items
