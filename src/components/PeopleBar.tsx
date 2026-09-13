@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import { Plus, X } from 'lucide-react'
-import Avatar from './Avatar'
 import { personColor, type Person } from '@/lib/bill'
 
 interface PeopleBarProps {
@@ -47,7 +46,6 @@ export default function PeopleBar({ people, savedNames, onAdd, onRemove, onRenam
                 }}
                 className="flex items-center gap-1"
               >
-                <Avatar person={person} size="sm" />
                 <input
                   autoFocus
                   value={editingName}
@@ -63,9 +61,8 @@ export default function PeopleBar({ people, savedNames, onAdd, onRemove, onRenam
           return (
             <span
               key={person.id}
-              className={`inline-flex items-center gap-1.5 pl-1 pr-1 py-1 rounded-full text-sm font-medium ${color.soft} ${color.text}`}
+              className={`inline-flex items-center gap-1 pl-3 pr-1 py-1 rounded-full text-sm font-medium ${color.bg} text-white`}
             >
-              <Avatar person={person} size="sm" />
               <button
                 type="button"
                 onClick={() => {
@@ -81,7 +78,7 @@ export default function PeopleBar({ people, savedNames, onAdd, onRemove, onRenam
                 type="button"
                 onClick={() => onRemove(person.id)}
                 aria-label={`Remove ${person.name}`}
-                className="w-5 h-5 inline-flex items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                className="w-5 h-5 inline-flex items-center justify-center rounded-full hover:bg-white/25"
               >
                 <X size={12} />
               </button>

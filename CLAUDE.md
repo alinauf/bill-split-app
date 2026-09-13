@@ -70,8 +70,8 @@ exposes every action plus derived totals/shares. Both entry points use it.
   access-code gate (`AccessCodeModal` + `/api/verify-access`, sessionStorage)
 - `ScannerBlock.tsx` - "Scan a receipt" link that expands into `BillScanner`
   (accepts a `locked` node for the Telegram gate)
-- `PeopleBar.tsx` - Colour-coded person chips (rename on tap, remove, recent names)
-- `ItemRow.tsx` / `SplitGrid.tsx` - Item lists with tap-to-assign avatars, inline
+- `PeopleBar.tsx` - Coloured name chips (rename on tap, remove, recent names)
+- `ItemRow.tsx` / `SplitGrid.tsx` - Item lists with tap-to-assign name chips (`NameChip.tsx`), inline
   editing via `ItemEditor.tsx`, and amber highlighting for unassigned items
 - `SplitSheet.tsx` - Bottom sheet for unequal splits (parts per person)
 - `SummaryCard.tsx` - Totals, extras as chips (service charge, GST, discount),
@@ -79,7 +79,7 @@ exposes every action plus derived totals/shares. Both entry points use it.
 - `SettleUp.tsx` - Per-person amounts, "who paid" and settle-up transfers,
   copy/export
 - `AddItemForm.tsx`, `EmptyState.tsx`, `StickyBar.tsx`, `HistoryPanel.tsx`,
-  `Toast.tsx` (undo/copied toasts), `Avatar.tsx`
+  `Toast.tsx` (undo/copied toasts), `NameChip.tsx` (name pill + colour dot)
 - `BillScanner.tsx` + `ScanReviewModal.tsx` - Receipt scanning via `/api/scan-bill`
 - `ThemeToggle.tsx` - Dark mode toggle rendered in the page header
   (persists in localStorage, respects system preference, toggles `.dark` on `<html>`)

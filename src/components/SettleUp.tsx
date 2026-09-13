@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Copy, Download, Share2 } from 'lucide-react'
-import Avatar from './Avatar'
+import { ColorDot } from './NameChip'
 import {
   convertCurrency,
   formatCurrency,
@@ -109,7 +109,7 @@ export default function SettleUp({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <Avatar person={person} size="sm" />
+                      <ColorDot person={person} />
                       <span className="font-medium text-gray-900 dark:text-gray-100 truncate">{person.name}</span>
                       {paidBy === person.id && (
                         <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
@@ -165,7 +165,7 @@ export default function SettleUp({
                       key={t.from.id}
                       className="flex items-center gap-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm"
                     >
-                      <Avatar person={t.from} size="sm" />
+                      <ColorDot person={t.from} />
                       <span className="flex-1 min-w-0 truncate text-gray-800 dark:text-gray-200">
                         <span className="font-medium">{t.from.name}</span> → {t.to.name}
                       </span>

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { Check, SlidersHorizontal, Trash2 } from 'lucide-react'
-import Avatar from './Avatar'
+import NameChip from './NameChip'
 import ItemEditor from './ItemEditor'
 import {
   formatAmount,
@@ -41,8 +41,8 @@ export default function SplitGrid({
   onRemove,
 }: SplitGridProps) {
   const [editingId, setEditingId] = useState<number | null>(null)
-  const th = 'px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-left'
-  const td = 'px-3 py-2 align-middle'
+  const th = 'px-2 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-left'
+  const td = 'px-2 py-2 align-middle'
 
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
@@ -53,10 +53,7 @@ export default function SplitGrid({
             <th className={`${th} text-right`}>Total</th>
             {people.map((p) => (
               <th key={p.id} className={`${th} text-center`}>
-                <span className="inline-flex flex-col items-center gap-0.5">
-                  <Avatar person={p} size="sm" />
-                  <span className="normal-case tracking-normal text-[10px] max-w-[4.5rem] truncate">{p.name}</span>
-                </span>
+                <NameChip person={p} size="sm" className="normal-case tracking-normal max-w-[6rem]" />
               </th>
             ))}
             <th className={`${th} text-center`}>All</th>
@@ -77,7 +74,7 @@ export default function SplitGrid({
                   unassigned ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-white dark:bg-gray-900'
                 }`}
               >
-                <td className={`${td} min-w-[12rem]`}>
+                <td className={`${td} min-w-[10rem] pl-3`}>
                   {editingId === item.id ? (
                     <ItemEditor
                       item={item}

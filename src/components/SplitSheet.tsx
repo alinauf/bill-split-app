@@ -2,7 +2,6 @@
 
 import React, { useEffect } from 'react'
 import { Minus, Plus, X } from 'lucide-react'
-import Avatar from './Avatar'
 import {
   formatCurrency,
   itemTotal,
@@ -91,8 +90,14 @@ export default function SplitSheet({
                     className="flex items-center gap-2 flex-1 min-w-0 text-left"
                     aria-pressed={!!share}
                   >
-                    <Avatar person={person} off={!share} />
-                    <span className={`truncate ${share ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}`}>
+                    <span
+                      className={`w-5 h-5 rounded-full flex-shrink-0 inline-flex items-center justify-center ${
+                        share ? personColor(person).bg : 'border border-dashed border-gray-300 dark:border-gray-600'
+                      }`}
+                    >
+                      {share && <span className="w-2 h-2 rounded-full bg-white" />}
+                    </span>
+                    <span className={`truncate ${share ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
                       {person.name}
                     </span>
                   </button>

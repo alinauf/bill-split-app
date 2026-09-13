@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { SlidersHorizontal, Trash2 } from 'lucide-react'
-import Avatar from './Avatar'
+import NameChip from './NameChip'
 import ItemEditor from './ItemEditor'
 import { formatAmount, isEqualSplit, itemTotal, totalShares, type Item, type Person } from '@/lib/bill'
 
@@ -93,7 +93,7 @@ export default function ItemRow({
                   aria-label={`${on ? 'Remove' : 'Add'} ${person.name}`}
                   className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
-                  <Avatar person={person} size="sm" off={!on} />
+                  <NameChip person={person} on={on} size="sm" />
                 </button>
               )
             })}
