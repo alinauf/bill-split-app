@@ -55,23 +55,38 @@ The dev server runs on http://localhost:3000 with hot-reloading enabled.
 - Offline support enabled (disabled in development mode)
 - Regenerate icons: `node scripts/generate-icons.mjs`
 
-**Components**:
-- `src/components/BillSplitter.tsx` - Main bill splitter component (client-side)
-  - Manages people, items, and assignments
-  - Calculates totals with GST, service charges, and discounts
-  - Multi-currency conversion support (15+ currencies)
-  - Export functionality for bill breakdowns
-- `src/components/ThemeToggle.tsx` - Dark mode toggle component (client-side)
-  - Persists theme preference in localStorage
-  - Respects system color scheme preference
-  - Toggles `.dark` class on `<html>` element
+**Components** (all client components in `src/components/`):
+- `BillSplitter.tsx` - Orchestrator: owns the bill draft state, autosaves it to
+  localStorage (`billsplit-draft`), and picks a layout with `useMediaQuery`:
+  - phones (< 768px): receipt-style list of `ItemRow`s with a `StickyBar`
+  - wide screens: `SplitGrid` table (items x people) with a pinned summary column
+- `PeopleBar.tsx` - Colour-coded person chips (rename on tap, remove, recent names)
+- `ItemRow.tsx` / `SplitGrid.tsx` - Item lists with tap-to-assign avatars, inline
+  editing via `ItemEditor.tsx`, and amber highlighting for unassigned items
+- `SplitSheet.tsx` - Bottom sheet for unequal splits (parts per person)
+- `SummaryCard.tsx` - Totals, extras as chips (service charge, GST, discount),
+  currency and conversion, and an "Unassigned" warning line
+- `SettleUp.tsx` - Per-person amounts, "who paid" and settle-up transfers,
+  copy/export
+- `AddItemForm.tsx`, `EmptyState.tsx`, `StickyBar.tsx`, `HistoryPanel.tsx`,
+  `Toast.tsx` (undo/copied toasts), `Avatar.tsx`
+- `BillScanner.tsx` + `ScanReviewModal.tsx` - Receipt scanning via `/api/scan-bill`
+- `ThemeToggle.tsx` - Dark mode toggle rendered in the page header
+  (persists in localStorage, respects system preference, toggles `.dark` on `<html>`)
+
+**Shared logic** (`src/lib/`):
+- `bill.ts` - Types, currencies/rates, `formatCurrency` (space after alphabetic
+  symbols, thousands separators), `calculateTotals`, `computeShares` (per-person
+  amounts rounded to the currency's smallest unit so they always add up; leftover
+  goes to the payer), `settlement`, `generateBreakdownText`
+- `storage.ts` - Safe localStorage helpers
 
 ## Key Files
 
 - `src/app/layout.tsx` - Root layout with PWA metadata and viewport config
 - `src/app/page.tsx` - Homepage that renders BillSplitter component
-- `src/components/BillSplitter.tsx` - Main application logic (client component)
-- `src/components/ThemeToggle.tsx` - Dark mode toggle (client component)
+- `src/components/BillSplitter.tsx` - Main application state and layout switch
+- `src/lib/bill.ts` - Bill maths and formatting shared by the components
 - `next.config.ts` - Next.js + PWA configuration
 - `public/manifest.json` - PWA manifest with app metadata
 - `scripts/generate-icons.mjs` - Script to generate PWA icons from icon.svg

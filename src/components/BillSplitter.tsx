@@ -1,471 +1,363 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Plus, Users, Receipt, Download, Trash2, Share2 } from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Camera, Receipt, RotateCcw, X } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import BillScanner from './BillScanner'
+import PeopleBar from './PeopleBar'
+import ItemRow from './ItemRow'
+import AddItemForm from './AddItemForm'
+import SplitGrid from './SplitGrid'
+import SplitSheet from './SplitSheet'
+import SummaryCard from './SummaryCard'
+import SettleUp from './SettleUp'
+import StickyBar from './StickyBar'
+import EmptyState from './EmptyState'
+import HistoryPanel, { type SplitHistoryEntry } from './HistoryPanel'
+import Toast, { type ToastState } from './Toast'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { loadFromStorage, saveToStorage } from '@/lib/storage'
+import {
+  calculateTotals,
+  computeShares,
+  generateBreakdownText,
+  nextColor,
+  type BillDraft,
+  type BillExtras,
+  type Item,
+  type Person,
+} from '@/lib/bill'
 
-interface Person {
-  id: number
-  name: string
+const DRAFT_KEY = 'billsplit-draft'
+const NAMES_KEY = 'billsplit-saved-names'
+const HISTORY_KEY = 'billsplit-history'
+
+const EMPTY_DRAFT: BillDraft = {
+  people: [],
+  items: [],
+  gstEnabled: false,
+  gstRate: '8',
+  serviceChargeEnabled: false,
+  serviceChargeRate: '10',
+  discountType: 'percentage',
+  discountValue: '',
+  defaultCurrency: 'MVR',
+  convertToCurrency: '',
+  customRate: '',
+  paidBy: null,
 }
 
-interface ItemShare {
-  personId: number
-  share: number
+interface Snapshot {
+  people: Person[]
+  items: Item[]
+  paidBy: number | null
 }
 
-interface Item {
-  id: number
-  name: string
-  price: number
-  quantity: number
-  shares: ItemShare[]
-}
-
-interface Currency {
-  code: string
-  symbol: string
-  name: string
-}
-
-interface Totals {
-  subtotal: number
-  discountAmount: number
-  afterDiscount: number
-  serviceChargeAmount: number
-  afterServiceCharge: number
-  gstAmount: number
-  total: number
-}
-
-interface SplitHistoryEntry {
-  id: string
-  date: string
-  currency: string
-  people: { name: string; total: number }[]
-  total: number
-  breakdownText: string
-}
-
-function loadFromStorage<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback
-  try {
-    const stored = localStorage.getItem(key)
-    return stored ? JSON.parse(stored) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function saveToStorage<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // Storage full or unavailable
-  }
+/** Older drafts may lack colours; assign them deterministically. */
+function normaliseDraft(raw: Partial<BillDraft> | null): BillDraft {
+  const draft = { ...EMPTY_DRAFT, ...(raw || {}) }
+  const people: Person[] = []
+  ;(draft.people || []).forEach((p) => {
+    if (!p || typeof p.name !== 'string') return
+    const color = typeof p.color === 'number' ? p.color : nextColor(people)
+    people.push({ id: p.id, name: p.name, color })
+  })
+  const items = (draft.items || []).filter((i) => i && typeof i.name === 'string')
+  return { ...draft, people, items }
 }
 
 const BillSplitter = () => {
-  const [people, setPeople] = useState<Person[]>([])
-  const [items, setItems] = useState<Item[]>([])
-  const [newPersonName, setNewPersonName] = useState('')
-  const [newItemName, setNewItemName] = useState('')
-  const [newItemPrice, setNewItemPrice] = useState('')
-  const [newItemQty, setNewItemQty] = useState('1')
-  const [gstEnabled, setGstEnabled] = useState(false)
-  const [gstRate, setGstRate] = useState('8')
-  const [serviceChargeEnabled, setServiceChargeEnabled] = useState(false)
-  const [serviceChargeRate, setServiceChargeRate] = useState('10')
-  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>(
-    'percentage'
-  )
-  const [discountValue, setDiscountValue] = useState('')
-  const [convertToCurrency, setConvertToCurrency] = useState('')
-  const [customRate, setCustomRate] = useState('')
-  const [defaultCurrency, setDefaultCurrency] = useState('MVR')
-  const [showCopiedToast, setShowCopiedToast] = useState(false)
+  const [draft, setDraft] = useState<BillDraft>(EMPTY_DRAFT)
+  const [loaded, setLoaded] = useState(false)
   const [savedNames, setSavedNames] = useState<string[]>([])
-  const [adjustingItems, setAdjustingItems] = useState<Set<number>>(new Set())
-  const [paidBy, setPaidBy] = useState<number | null>(null)
   const [splitHistory, setSplitHistory] = useState<SplitHistoryEntry[]>([])
+  const [toast, setToast] = useState<ToastState | null>(null)
+  const [splitItemId, setSplitItemId] = useState<number | null>(null)
+  const [showScanner, setShowScanner] = useState(false)
+  const [typeMode, setTypeMode] = useState(false)
+  const [focusToken, setFocusToken] = useState(0)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isWide = useMediaQuery('(min-width: 768px)')
 
+  const { people, items, defaultCurrency, convertToCurrency, customRate, paidBy } = draft
+  const extras = useMemo<BillExtras>(
+    () => ({
+      gstEnabled: draft.gstEnabled,
+      gstRate: draft.gstRate,
+      serviceChargeEnabled: draft.serviceChargeEnabled,
+      serviceChargeRate: draft.serviceChargeRate,
+      discountType: draft.discountType,
+      discountValue: draft.discountValue,
+    }),
+    [draft.gstEnabled, draft.gstRate, draft.serviceChargeEnabled, draft.serviceChargeRate, draft.discountType, draft.discountValue]
+  )
+
+  // Load persisted state once on the client.
   useEffect(() => {
-    setSavedNames(loadFromStorage<string[]>('billsplit-saved-names', []))
-    setSplitHistory(loadFromStorage<SplitHistoryEntry[]>('billsplit-history', []))
+    setDraft(normaliseDraft(loadFromStorage<Partial<BillDraft> | null>(DRAFT_KEY, null)))
+    setSavedNames(loadFromStorage<string[]>(NAMES_KEY, []))
+    setSplitHistory(loadFromStorage<SplitHistoryEntry[]>(HISTORY_KEY, []))
+    setLoaded(true)
   }, [])
 
-  const exchangeRates: Record<string, number> = {
-    USD: 1.0,
-    EUR: 0.92,
-    GBP: 0.79,
-    CAD: 1.36,
-    AUD: 1.52,
-    SGD: 1.34,
-    INR: 83.12,
-    JPY: 149.5,
-    CNY: 7.23,
-    KRW: 1320.0,
-    MYR: 4.67,
-    THB: 35.8,
-    PHP: 56.5,
-    VND: 24500.0,
-    MVR: 15.42,
-  }
+  // Autosave the draft so a reload never loses the bill.
+  useEffect(() => {
+    if (loaded) saveToStorage(DRAFT_KEY, draft)
+  }, [draft, loaded])
 
-  const currencies: Currency[] = [
-    { code: 'USD', symbol: '$', name: 'US Dollar' },
-    { code: 'EUR', symbol: '€', name: 'Euro' },
-    { code: 'GBP', symbol: '£', name: 'British Pound' },
-    { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
-    { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-    { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-    { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-    { code: 'KRW', symbol: '₩', name: 'South Korean Won' },
-    { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit' },
-    { code: 'THB', symbol: '฿', name: 'Thai Baht' },
-    { code: 'PHP', symbol: '₱', name: 'Philippine Peso' },
-    { code: 'VND', symbol: '₫', name: 'Vietnamese Dong' },
-    { code: 'MVR', symbol: 'MVR', name: 'Maldivian Rufiyaa' },
-  ]
+  const patch = useCallback((changes: Partial<BillDraft>) => {
+    setDraft((prev) => ({ ...prev, ...changes }))
+  }, [])
 
-  const convertCurrency = (
-    amount: number,
-    fromCurrency: string,
-    toCurrency: string
-  ): number => {
-    if (!toCurrency || fromCurrency === toCurrency) return amount
+  const showToast = useCallback((next: ToastState, ms = 2000) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast(next)
+    toastTimer.current = setTimeout(() => setToast(null), ms)
+  }, [])
 
-    if (
-      fromCurrency === defaultCurrency &&
-      customRate &&
-      parseFloat(customRate) > 0
-    ) {
-      return amount * parseFloat(customRate)
-    }
+  const dismissToast = useCallback(() => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast(null)
+  }, [])
 
-    const fromRate = exchangeRates[fromCurrency] || 1
-    const toRate = exchangeRates[toCurrency] || 1
+  const undoable = useCallback(
+    (message: string, snapshot: Snapshot) => {
+      showToast(
+        {
+          message,
+          actionLabel: 'Undo',
+          onAction: () => {
+            patch(snapshot)
+            dismissToast()
+          },
+        },
+        5000
+      )
+    },
+    [showToast, patch, dismissToast]
+  )
 
-    const usdAmount = amount / fromRate
-    return usdAmount * toRate
-  }
-
-  const formatCurrency = (amount: number, currencyCode: string): string => {
-    const currency = currencies.find((c) => c.code === currencyCode)
-    const symbol = currency ? currency.symbol : currencyCode
-
-    if (
-      currencyCode === 'JPY' ||
-      currencyCode === 'KRW' ||
-      currencyCode === 'VND'
-    ) {
-      return `${symbol}${Math.round(amount).toLocaleString()}`
-    }
-    return `${symbol}${amount.toFixed(2)}`
-  }
-
-  const getDefaultCurrencySymbol = (): string => {
-    const currency = currencies.find((c) => c.code === defaultCurrency)
-    return currency ? currency.symbol : defaultCurrency
-  }
-
-  const addPerson = (name?: string) => {
-    const trimmed = (name || newPersonName).trim()
-    if (trimmed) {
-      setPeople([...people, { id: Date.now(), name: trimmed }])
-      setNewPersonName('')
-      setSavedNames(prev => {
-        const without = prev.filter(n => n !== trimmed)
-        const updated = [trimmed, ...without].slice(0, 8)
-        saveToStorage('billsplit-saved-names', updated)
-        return updated
-      })
-    }
+  // ---- People ----
+  const addPerson = (name: string) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setDraft((prev) => ({
+      ...prev,
+      people: [...prev.people, { id: Date.now(), name: trimmed, color: nextColor(prev.people) }],
+    }))
+    setSavedNames((prev) => {
+      const updated = [trimmed, ...prev.filter((n) => n !== trimmed)].slice(0, 8)
+      saveToStorage(NAMES_KEY, updated)
+      return updated
+    })
   }
 
   const removePerson = (personId: number) => {
-    setPeople(people.filter((p) => p.id !== personId))
-    setItems(
-      items.map((item) => ({
-        ...item,
-        shares: item.shares.filter((s) => s.personId !== personId),
-      }))
-    )
-    if (paidBy === personId) setPaidBy(null)
+    const person = people.find((p) => p.id === personId)
+    if (!person) return
+    const snapshot: Snapshot = { people, items, paidBy }
+    patch({
+      people: people.filter((p) => p.id !== personId),
+      items: items.map((item) => ({ ...item, shares: item.shares.filter((s) => s.personId !== personId) })),
+      paidBy: paidBy === personId ? null : paidBy,
+    })
+    undoable(`Removed ${person.name}`, snapshot)
   }
 
-  const addItem = () => {
-    if (newItemName.trim() && newItemPrice && people.length > 0) {
-      setItems([
-        ...items,
-        {
-          id: Date.now(),
-          name: newItemName.trim(),
-          price: parseFloat(newItemPrice),
-          quantity: parseInt(newItemQty) || 1,
-          shares: [],
-        },
-      ])
-      setNewItemName('')
-      setNewItemPrice('')
-      setNewItemQty('1')
-    }
+  const renamePerson = (personId: number, name: string) => {
+    patch({ people: people.map((p) => (p.id === personId ? { ...p, name } : p)) })
   }
 
-  const removeItem = (itemId: number) => {
-    setItems(items.filter((item) => item.id !== itemId))
+  // ---- Items ----
+  const addItem = (item: { name: string; price: number; quantity: number }) => {
+    setDraft((prev) => ({
+      ...prev,
+      items: [...prev.items, { id: Date.now(), ...item, shares: [] }],
+    }))
+    setTypeMode(false)
   }
 
-  const addItemsFromScan = (
-    scannedItems: Array<{ name: string; price: number; quantity: number }>
-  ) => {
-    const newItems = scannedItems.map((item, index) => ({
+  const addItemsFromScan = (scanned: Array<{ name: string; price: number; quantity: number }>) => {
+    const newItems: Item[] = scanned.map((item, index) => ({
       id: Date.now() + index,
       name: item.name,
       price: item.quantity > 1 ? item.price / item.quantity : item.price,
       quantity: item.quantity || 1,
       shares: [],
     }))
-    setItems([...items, ...newItems])
+    setDraft((prev) => ({ ...prev, items: [...prev.items, ...newItems] }))
+    setShowScanner(false)
+    showToast({ message: `Added ${newItems.length} item${newItems.length === 1 ? '' : 's'} from the receipt`, kind: 'success' })
   }
 
-  const toggleItemAssignment = (itemId: number, personId: number) => {
-    setItems(
-      items.map((item) => {
-        if (item.id === itemId) {
-          const existing = item.shares.findIndex(s => s.personId === personId)
-          return {
-            ...item,
-            shares: existing >= 0
-              ? item.shares.filter(s => s.personId !== personId)
-              : [...item.shares, { personId, share: 1 }],
-          }
-        }
-        return item
-      })
-    )
+  const updateItem = (itemId: number, changes: { name: string; price: number; quantity: number }) => {
+    patch({ items: items.map((i) => (i.id === itemId ? { ...i, ...changes } : i)) })
   }
 
-  const updateShare = (itemId: number, personId: number, newShare: number) => {
-    setItems(items.map(item => {
-      if (item.id === itemId) {
+  const removeItem = (itemId: number) => {
+    const item = items.find((i) => i.id === itemId)
+    if (!item) return
+    const snapshot: Snapshot = { people, items, paidBy }
+    patch({ items: items.filter((i) => i.id !== itemId) })
+    if (splitItemId === itemId) setSplitItemId(null)
+    undoable(`Removed ${item.name}`, snapshot)
+  }
+
+  const toggleAssignment = useCallback((itemId: number, personId: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      items: prev.items.map((item) => {
+        if (item.id !== itemId) return item
+        const has = item.shares.some((s) => s.personId === personId)
         return {
           ...item,
-          shares: item.shares.map(s =>
-            s.personId === personId ? { ...s, share: newShare } : s
-          ),
+          shares: has ? item.shares.filter((s) => s.personId !== personId) : [...item.shares, { personId, share: 1 }],
         }
-      }
-      return item
+      }),
+    }))
+  }, [])
+
+  const toggleAll = (itemId: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      items: prev.items.map((item) => {
+        if (item.id !== itemId) return item
+        const everyone = prev.people.every((p) => item.shares.some((s) => s.personId === p.id))
+        return { ...item, shares: everyone ? [] : prev.people.map((p) => ({ personId: p.id, share: 1 })) }
+      }),
     }))
   }
 
-  const calculateTotals = (): Totals => {
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const updateShare = useCallback((itemId: number, personId: number, share: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === itemId
+          ? { ...item, shares: item.shares.map((s) => (s.personId === personId ? { ...s, share } : s)) }
+          : item
+      ),
+    }))
+  }, [])
 
-    let discountAmount = 0
-    if (discountValue) {
-      if (discountType === 'percentage') {
-        discountAmount = (subtotal * parseFloat(discountValue)) / 100
-      } else {
-        discountAmount = parseFloat(discountValue)
-      }
-    }
+  const resetEqual = useCallback((itemId: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === itemId ? { ...item, shares: item.shares.map((s) => ({ ...s, share: 1 })) } : item
+      ),
+    }))
+  }, [])
 
-    const afterDiscount = subtotal - discountAmount
-
-    const serviceChargeAmount =
-      serviceChargeEnabled && serviceChargeRate
-        ? (afterDiscount * parseFloat(serviceChargeRate)) / 100
-        : 0
-
-    const afterServiceCharge = afterDiscount + serviceChargeAmount
-    const gstAmount =
-      gstEnabled && gstRate
-        ? (afterServiceCharge * parseFloat(gstRate)) / 100
-        : 0
-    const total = afterServiceCharge + gstAmount
-
-    return {
-      subtotal,
-      discountAmount,
-      afterDiscount,
-      serviceChargeAmount,
-      afterServiceCharge,
-      gstAmount,
-      total,
-    }
+  const newBill = () => {
+    if (people.length === 0 && items.length === 0) return
+    const snapshot: Snapshot = { people, items, paidBy }
+    patch({ people: [], items: [], paidBy: null, discountValue: '' })
+    setShowScanner(false)
+    setTypeMode(false)
+    undoable('Started a new bill', snapshot)
   }
 
-  const calculatePersonTotal = (personId: number): number => {
-    let personTotal = 0
+  // ---- Derived ----
+  const totals = useMemo(() => calculateTotals(items, extras), [items, extras])
+  const shares = useMemo(
+    () => computeShares(items, people, totals, paidBy, defaultCurrency),
+    [items, people, totals, paidBy, defaultCurrency]
+  )
+  const canShare = items.length > 0 && people.length > 0
+  const splitItem = items.find((i) => i.id === splitItemId) || null
 
-    items.forEach((item) => {
-      const personShare = item.shares.find(s => s.personId === personId)
-      if (personShare) {
-        const totalShares = item.shares.reduce((sum, s) => sum + s.share, 0)
-        const itemTotal = item.price * item.quantity
-        personTotal += totalShares > 0 ? itemTotal * (personShare.share / totalShares) : 0
-      }
+  const breakdownText = () =>
+    generateBreakdownText({
+      items,
+      people,
+      extras,
+      totals,
+      shares,
+      paidBy,
+      defaultCurrency,
+      convertToCurrency,
+      customRate,
     })
 
-    const totals = calculateTotals()
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-
-    if (subtotal > 0) {
-      const ratio = personTotal / subtotal
-      const afterDiscount = personTotal - totals.discountAmount * ratio
-      const serviceChargeAmount =
-        serviceChargeEnabled && serviceChargeRate
-          ? (afterDiscount * parseFloat(serviceChargeRate)) / 100
-          : 0
-      const afterServiceCharge = afterDiscount + serviceChargeAmount
-      const gstAmount =
-        gstEnabled && gstRate
-          ? (afterServiceCharge * parseFloat(gstRate)) / 100
-          : 0
-      return afterServiceCharge + gstAmount
+  // ---- Share / export / history ----
+  const saveToHistory = (text: string) => {
+    const entry: SplitHistoryEntry = {
+      id: new Date().toISOString(),
+      date: new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      currency: defaultCurrency,
+      people: people.map((p) => ({ name: p.name, total: shares.byPerson.get(p.id) || 0 })),
+      total: totals.total,
+      breakdownText: text,
     }
-
-    return 0
-  }
-
-  const getPersonItems = (personId: number): Item[] => {
-    return items.filter((item) => item.shares.some(s => s.personId === personId))
-  }
-
-  const generateBreakdownText = (): string => {
-    const totals = calculateTotals()
-    let breakdown = 'Bill Breakdown\n'
-    breakdown += '================\n\n'
-
-    breakdown += 'Items:\n'
-    items.forEach((item) => {
-      const qtyPrefix = item.quantity > 1 ? `${item.quantity}x ` : ''
-      const itemTotal = item.price * item.quantity
-      breakdown += `${qtyPrefix}${item.name} - ${formatCurrency(
-        itemTotal,
-        defaultCurrency
-      )}`
-      if (item.shares.length > 0) {
-        const isEqual = item.shares.every(s => s.share === item.shares[0].share)
-        const totalShares = item.shares.reduce((sum, s) => sum + s.share, 0)
-        const assignedNames = item.shares
-          .map((s) => {
-            const name = people.find((p) => p.id === s.personId)?.name || 'Unknown'
-            return isEqual ? name : `${name}: ${s.share}/${totalShares}`
-          })
-          .join(', ')
-        breakdown += ` (${assignedNames})`
-      }
-      breakdown += '\n'
+    setSplitHistory((prev) => {
+      const updated = [entry, ...prev].slice(0, 3)
+      saveToStorage(HISTORY_KEY, updated)
+      return updated
     })
-
-    breakdown += `\nSubtotal: ${formatCurrency(
-      totals.subtotal,
-      defaultCurrency
-    )}`
-    if (totals.discountAmount > 0) {
-      breakdown += `\nDiscount: -${formatCurrency(
-        totals.discountAmount,
-        defaultCurrency
-      )}`
-      breakdown += `\nAfter Discount: ${formatCurrency(
-        totals.afterDiscount,
-        defaultCurrency
-      )}`
-    }
-    if (serviceChargeEnabled && totals.serviceChargeAmount > 0) {
-      breakdown += `\nService Charge (${serviceChargeRate}%): ${formatCurrency(
-        totals.serviceChargeAmount,
-        defaultCurrency
-      )}`
-      breakdown += `\nAfter Service Charge: ${formatCurrency(
-        totals.afterServiceCharge,
-        defaultCurrency
-      )}`
-    }
-    if (gstEnabled) {
-      breakdown += `\nGST (${gstRate}%): ${formatCurrency(
-        totals.gstAmount,
-        defaultCurrency
-      )}`
-    }
-    breakdown += `\nTotal: ${formatCurrency(totals.total, defaultCurrency)}`
-
-    if (convertToCurrency && convertToCurrency !== defaultCurrency) {
-      breakdown += `\nTotal in ${convertToCurrency}: ${formatCurrency(
-        convertCurrency(totals.total, defaultCurrency, convertToCurrency),
-        convertToCurrency
-      )}`
-    }
-
-    breakdown += '\n\nPer Person:\n'
-    people.forEach((person) => {
-      const personTotal = calculatePersonTotal(person.id)
-      breakdown += `${person.name}: ${formatCurrency(
-        personTotal,
-        defaultCurrency
-      )}`
-      if (convertToCurrency && convertToCurrency !== defaultCurrency) {
-        breakdown += ` (${formatCurrency(
-          convertCurrency(personTotal, defaultCurrency, convertToCurrency),
-          convertToCurrency
-        )})`
-      }
-      breakdown += '\n'
-    })
-
-    if (paidBy !== null) {
-      const payerName = people.find(p => p.id === paidBy)?.name || 'Unknown'
-      breakdown += `\nPaid by: ${payerName}\n`
-    }
-
-    return breakdown
   }
 
-  const copyToClipboard = async () => {
-    const text = generateBreakdownText()
-
+  const writeClipboard = async (text: string): Promise<boolean> => {
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text)
-      } else {
-        const textArea = document.createElement('textarea')
-        textArea.value = text
-        textArea.style.position = 'fixed'
-        textArea.style.left = '-999999px'
-        textArea.style.top = '-999999px'
-        document.body.appendChild(textArea)
-        textArea.focus()
-        textArea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textArea)
+        return true
       }
-
-      saveToHistory()
-      setShowCopiedToast(true)
-      setTimeout(() => setShowCopiedToast(false), 2000)
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textArea)
+      return ok
     } catch {
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: 'Bill Breakdown',
-            text: text,
-          })
-        } catch {
-          // User cancelled or share failed
-        }
+      return false
+    }
+  }
+
+  const copyBreakdown = async () => {
+    const text = breakdownText()
+    const copied = await writeClipboard(text)
+    if (copied) {
+      saveToHistory(text)
+      showToast({ message: 'Breakdown copied', kind: 'success' })
+      return
+    }
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Bill Breakdown', text })
+        saveToHistory(text)
+      } catch {
+        // User cancelled
       }
     }
+  }
+
+  const shareBreakdown = async () => {
+    const text = breakdownText()
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Bill Breakdown', text })
+        saveToHistory(text)
+        return
+      } catch {
+        // Cancelled or unsupported — fall back to copying
+      }
+    }
+    await copyBreakdown()
   }
 
   const exportBreakdown = () => {
-    const breakdown = generateBreakdownText()
-    const blob = new Blob([breakdown], { type: 'text/plain' })
+    const text = breakdownText()
+    const blob = new Blob([text], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -474,754 +366,230 @@ const BillSplitter = () => {
     a.click()
     document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 100)
-    saveToHistory()
+    saveToHistory(text)
   }
 
-  const saveToHistory = () => {
-    const t = calculateTotals()
-    const entry: SplitHistoryEntry = {
-      id: new Date().toISOString(),
-      date: new Date().toLocaleDateString('en-US', {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      }),
-      currency: defaultCurrency,
-      people: people.map(p => ({
-        name: p.name,
-        total: calculatePersonTotal(p.id),
-      })),
-      total: t.total,
-      breakdownText: generateBreakdownText(),
-    }
-    setSplitHistory(prev => {
-      const updated = [entry, ...prev].slice(0, 3)
-      saveToStorage('billsplit-history', updated)
-      return updated
-    })
+  const copyText = async (text: string) => {
+    if (await writeClipboard(text)) showToast({ message: 'Copied', kind: 'success' })
   }
 
   const clearHistory = () => {
     setSplitHistory([])
     setSavedNames([])
-    saveToStorage('billsplit-history', [])
-    saveToStorage('billsplit-saved-names', [])
+    saveToStorage(HISTORY_KEY, [])
+    saveToStorage(NAMES_KEY, [])
   }
 
-  const copyHistoryEntry = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setShowCopiedToast(true)
-      setTimeout(() => setShowCopiedToast(false), 2000)
-    } catch {
-      // Clipboard not available
-    }
-  }
+  const jumpToSplit = () => document.getElementById('each-pays')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
-  const totals = calculateTotals()
+  // ---- Render ----
+  const hasContent = people.length > 0 || items.length > 0
+  const showAddForm = items.length > 0 || typeMode
+  const showEmpty = items.length === 0 && !typeMode && !showScanner
+
+  const summaryCard = (receipt: boolean) => (
+    <SummaryCard
+      receipt={receipt}
+      totals={totals}
+      shares={shares}
+      extras={extras}
+      onChangeExtras={patch}
+      defaultCurrency={defaultCurrency}
+      onChangeDefaultCurrency={(code) => patch({ defaultCurrency: code })}
+      convertToCurrency={convertToCurrency}
+      onChangeConvertToCurrency={(code) => patch({ convertToCurrency: code })}
+      customRate={customRate}
+      onChangeCustomRate={(rate) => patch({ customRate: rate })}
+    />
+  )
+
+  const settleUp = (receipt: boolean) => (
+    <div id="each-pays" className="scroll-mt-4">
+      <SettleUp
+        receipt={receipt}
+        people={people}
+        items={items}
+        shares={shares}
+        paidBy={paidBy}
+        onChangePaidBy={(id) => patch({ paidBy: id })}
+        currency={defaultCurrency}
+        convertToCurrency={convertToCurrency}
+        customRate={customRate}
+        canShare={canShare}
+        onCopy={copyBreakdown}
+        onExport={exportBreakdown}
+        onCopyLine={copyText}
+      />
+    </div>
+  )
+
+  const scannerBlock = (
+    <div className="space-y-2">
+      {items.length > 0 && !showScanner && (
+        <button
+          type="button"
+          onClick={() => setShowScanner(true)}
+          className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          <Camera size={16} /> Scan a receipt
+        </button>
+      )}
+      {showScanner && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowScanner(false)}
+            aria-label="Hide scanner"
+            className="absolute right-2 top-2 z-10 p-1 rounded-full text-gray-500 hover:bg-white/70 dark:hover:bg-gray-700"
+          >
+            <X size={16} />
+          </button>
+          <BillScanner onItemsConfirmed={addItemsFromScan} />
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <>
-      <ThemeToggle />
-      <div className='max-w-4xl mx-auto p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen pb-8'>
-        <div className='mb-6 sm:mb-8'>
-          <h1 className='text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-2'>
-            <Receipt className='text-blue-600 dark:text-blue-400' />
-            Bill Splitter
-          </h1>
-          <p className='text-sm sm:text-base text-gray-600 dark:text-gray-400'>
-            Split restaurant bills by items with GST and discount support
-          </p>
-        </div>
-
-        <div className='grid md:grid-cols-2 gap-4 sm:gap-6'>
-          <div className='space-y-4 sm:space-y-6'>
-            <div className='bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg'>
-              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100 flex items-center gap-2'>
-                <Users className='text-blue-600 dark:text-blue-400 w-4 h-4 sm:w-5 sm:h-5' />
-                People
-              </h2>
-              <div className='flex gap-2 mb-3'>
-                <input
-                  type='text'
-                  value={newPersonName}
-                  onChange={(e) => setNewPersonName(e.target.value)}
-                  placeholder="Enter person's name"
-                  className='flex-1 min-w-0 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                  onKeyPress={(e) => e.key === 'Enter' && addPerson()}
-                />
-                <button
-                  onClick={() => addPerson()}
-                  className='flex-shrink-0 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors'
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-              {savedNames.filter(name => !people.some(p => p.name === name)).length > 0 && (
-                <div className='mb-3'>
-                  <div className='flex flex-wrap gap-1.5'>
-                    {savedNames
-                      .filter(name => !people.some(p => p.name === name))
-                      .slice(0, 8)
-                      .map(name => (
-                        <button
-                          key={name}
-                          onClick={() => addPerson(name)}
-                          className='px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors'
-                        >
-                          {name}
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              )}
-              <div className='space-y-2'>
-                {people.map((person) => (
-                  <div
-                    key={person.id}
-                    className='flex items-center justify-between bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600 gap-2'
-                  >
-                    <span className='font-medium dark:text-gray-100 text-sm sm:text-base truncate'>
-                      {person.name}
-                    </span>
-                    <button
-                      onClick={() => removePerson(person.id)}
-                      className='flex-shrink-0 text-red-500 hover:text-red-700 transition-colors'
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className='bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg'>
-              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100'>
-                Items
-              </h2>
-              <BillScanner
-                onItemsConfirmed={addItemsFromScan}
-                disabled={people.length === 0}
-              />
-              <div className='space-y-2 mb-3'>
-                <input
-                  type='text'
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  placeholder='Item name'
-                  className='w-full px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                />
-                <div className='flex gap-2'>
-                  <div className='flex items-center gap-1 flex-1'>
-                    <span className='text-xs text-gray-500 dark:text-gray-400'>
-                      Qty
-                    </span>
-                    <input
-                      type='number'
-                      value={newItemQty}
-                      onChange={(e) => setNewItemQty(e.target.value)}
-                      placeholder='1'
-                      min='1'
-                      className='w-14 flex-shrink-0 px-2 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                    />
-                  </div>
-                  <div className='flex items-center gap-1 flex-1'>
-                    <span className='text-xs text-gray-500 dark:text-gray-400'>
-                      Unit Price
-                    </span>
-                    <input
-                      type='number'
-                      value={newItemPrice}
-                      onChange={(e) => setNewItemPrice(e.target.value)}
-                      placeholder='0.00'
-                      step='0.01'
-                      className='w-full min-w-0 px-2 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                    />
-                  </div>
-                  <button
-                    onClick={addItem}
-                    className='flex-shrink-0 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50'
-                    disabled={people.length === 0}
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-                {/* Show calculated total */}
-                {newItemPrice && parseFloat(newItemPrice) > 0 && parseInt(newItemQty) > 1 && (
-                  <div className='text-sm text-blue-600 dark:text-blue-400 font-medium'>
-                    Total: {formatCurrency(parseFloat(newItemPrice) * (parseInt(newItemQty) || 1), defaultCurrency)}
-                  </div>
-                )}
-              </div>
-              <div className='space-y-3'>
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className='bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600'
-                  >
-                    {/* Row 1: Item name + Delete */}
-                    <div className='flex items-start justify-between gap-2 mb-2'>
-                      <span className='font-medium dark:text-gray-100 text-sm sm:text-base'>
-                        {item.name}
-                      </span>
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className='flex-shrink-0 text-red-500 hover:text-red-700 transition-colors -mt-0.5'
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-
-                    {/* Row 2: Quantity controls + Price */}
-                    <div className='flex items-center justify-between mb-2'>
-                      <div className='flex items-center gap-1'>
-                        <button
-                          onClick={() => {
-                            if (item.quantity > 1) {
-                              setItems(items.map(i =>
-                                i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i
-                              ))
-                            }
-                          }}
-                          className='w-6 h-6 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm'
-                        >
-                          -
-                        </button>
-                        <span className='w-6 text-center text-sm font-medium dark:text-gray-100'>
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => {
-                            setItems(items.map(i =>
-                              i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-                            ))
-                          }}
-                          className='w-6 h-6 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded-full text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-sm'
-                        >
-                          +
-                        </button>
-                      </div>
-                      <span className='text-gray-600 dark:text-gray-300 text-sm sm:text-base font-medium'>
-                        {formatCurrency(item.price * item.quantity, defaultCurrency)}
-                      </span>
-                    </div>
-                    <div className='flex flex-wrap gap-1.5'>
-                      <button
-                        onClick={() => {
-                          const allAssigned = people.every((p) =>
-                            item.shares.some(s => s.personId === p.id)
-                          )
-                          setItems(
-                            items.map((i) =>
-                              i.id === item.id
-                                ? {
-                                    ...i,
-                                    shares: allAssigned
-                                      ? []
-                                      : people.map((p) => ({ personId: p.id, share: 1 })),
-                                  }
-                                : i
-                            )
-                          )
-                        }}
-                        className={`px-2 py-1 text-xs sm:text-sm rounded transition-colors whitespace-nowrap font-medium ${
-                          people.every((p) => item.shares.some(s => s.personId === p.id))
-                            ? 'bg-green-600 text-white'
-                            : 'bg-gray-300 dark:bg-gray-500 text-gray-700 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-400'
-                        }`}
-                      >
-                        All
-                      </button>
-                      {people.map((person) => (
-                        <button
-                          key={person.id}
-                          onClick={() =>
-                            toggleItemAssignment(item.id, person.id)
-                          }
-                          className={`px-2 py-1 text-xs sm:text-sm rounded transition-colors whitespace-nowrap ${
-                            item.shares.some(s => s.personId === person.id)
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
-                          }`}
-                        >
-                          {person.name}
-                        </button>
-                      ))}
-                    </div>
-                    {item.shares.length > 1 && (() => {
-                      const totalShares = item.shares.reduce((sum, sh) => sum + sh.share, 0)
-                      const isEqual = item.shares.every(s => s.share === item.shares[0].share)
-                      const isAdjusting = adjustingItems.has(item.id)
-                      const itemTotal = item.price * item.quantity
-                      return (
-                        <div className='mt-2'>
-                          <button
-                            onClick={() => setAdjustingItems(prev => {
-                              const next = new Set(prev)
-                              if (next.has(item.id)) next.delete(item.id)
-                              else next.add(item.id)
-                              return next
-                            })}
-                            className='text-[11px] text-blue-600 dark:text-blue-400 hover:underline mb-1'
-                          >
-                            {isAdjusting ? 'Hide' : isEqual ? 'Adjust split' : 'Adjust split (unequal)'}
-                          </button>
-                          {isAdjusting && (
-                            <div className='space-y-1.5'>
-                              <div className='flex justify-end text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide'>
-                                <div className='flex items-center gap-4'>
-                                  <span>Parts</span>
-                                  <span className='w-16 text-right'>Pays</span>
-                                </div>
-                              </div>
-                              {item.shares.map(s => {
-                                const person = people.find(p => p.id === s.personId)
-                                const personAmount = totalShares > 0 ? itemTotal * (s.share / totalShares) : 0
-                                return (
-                                  <div key={s.personId} className='flex items-center justify-between text-xs'>
-                                    <span className='text-gray-600 dark:text-gray-400'>{person?.name}</span>
-                                    <div className='flex items-center gap-4'>
-                                      <div className='flex items-center gap-1'>
-                                        <button
-                                          onClick={() => updateShare(item.id, s.personId, Math.max(1, s.share - 1))}
-                                          className='w-5 h-5 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-xs'
-                                        >
-                                          -
-                                        </button>
-                                        <span className='w-4 text-center font-medium dark:text-gray-200'>
-                                          {s.share}
-                                        </span>
-                                        <button
-                                          onClick={() => updateShare(item.id, s.personId, s.share + 1)}
-                                          className='w-5 h-5 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 text-xs'
-                                        >
-                                          +
-                                        </button>
-                                      </div>
-                                      <span className='w-16 text-right text-gray-500 dark:text-gray-400'>
-                                        {formatCurrency(personAmount, defaultCurrency)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className='bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg'>
-              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100'>
-                Settings
-              </h2>
-
-              <div className='mb-3'>
-                <label className='block text-xs sm:text-sm font-medium dark:text-gray-200 mb-1'>
-                  Default Currency
-                </label>
-                <select
-                  value={defaultCurrency}
-                  onChange={(e) => {
-                    setDefaultCurrency(e.target.value)
-                    setCustomRate('')
-                  }}
-                  className='w-full px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                >
-                  {currencies.map((currency) => (
-                    <option key={currency.code} value={currency.code}>
-                      {currency.code} - {currency.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className='mb-3'>
-                <label className='block text-xs sm:text-sm font-medium dark:text-gray-200 mb-1'>
-                  Convert Total to Currency
-                </label>
-                <select
-                  value={convertToCurrency}
-                  onChange={(e) => {
-                    setConvertToCurrency(e.target.value)
-                    setCustomRate('')
-                  }}
-                  className='w-full px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                >
-                  <option value=''>No conversion</option>
-                  {currencies.map((currency) => (
-                    <option key={currency.code} value={currency.code}>
-                      {currency.code} - {currency.name}
-                    </option>
-                  ))}
-                </select>
-
-                {convertToCurrency && (
-                  <div className='mt-2'>
-                    <label className='block text-xs text-gray-600 dark:text-gray-400 mb-1'>
-                      Custom Rate (1 {defaultCurrency} = ? {convertToCurrency})
-                    </label>
-                    <input
-                      type='number'
-                      value={customRate}
-                      onChange={(e) => setCustomRate(e.target.value)}
-                      placeholder={`Default: ${(
-                        exchangeRates[convertToCurrency] /
-                        exchangeRates[defaultCurrency]
-                      ).toFixed(4)}`}
-                      step='0.0001'
-                      className='w-full px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className='mb-3'>
-                <label className='block text-xs sm:text-sm font-medium dark:text-gray-200 mb-1'>
-                  Discount
-                </label>
-                <div className='flex gap-2'>
-                  <select
-                    value={discountType}
-                    onChange={(e) =>
-                      setDiscountType(e.target.value as 'percentage' | 'fixed')
-                    }
-                    className='flex-shrink-0 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                  >
-                    <option value='percentage'>%</option>
-                    <option value='fixed'>{getDefaultCurrencySymbol()}</option>
-                  </select>
-                  <input
-                    type='number'
-                    value={discountValue}
-                    onChange={(e) => setDiscountValue(e.target.value)}
-                    placeholder='0'
-                    step='0.01'
-                    className='flex-1 min-w-0 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                  />
-                </div>
-              </div>
-
-              <div className='mb-3'>
-                <div className='flex items-center gap-2 mb-2'>
-                  <input
-                    type='checkbox'
-                    id='serviceCharge'
-                    checked={serviceChargeEnabled}
-                    onChange={(e) => setServiceChargeEnabled(e.target.checked)}
-                    className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
-                  />
-                  <label
-                    htmlFor='serviceCharge'
-                    className='text-xs sm:text-sm font-medium dark:text-gray-200'
-                  >
-                    Include Service Charge
-                  </label>
-                </div>
-                {serviceChargeEnabled && (
-                  <div className='ml-6'>
-                    <label className='block text-xs text-gray-600 dark:text-gray-400 mb-1'>
-                      Service Charge Rate (%)
-                    </label>
-                    <input
-                      type='number'
-                      value={serviceChargeRate}
-                      onChange={(e) => setServiceChargeRate(e.target.value)}
-                      placeholder='10'
-                      step='0.1'
-                      min='0'
-                      max='100'
-                      className='w-20 sm:w-24 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                    />
-                    <span className='text-xs text-gray-600 dark:text-gray-400 ml-2'>
-                      %
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className='mb-3'>
-                <div className='flex items-center gap-2 mb-2'>
-                  <input
-                    type='checkbox'
-                    id='gst'
-                    checked={gstEnabled}
-                    onChange={(e) => setGstEnabled(e.target.checked)}
-                    className='w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
-                  />
-                  <label
-                    htmlFor='gst'
-                    className='text-xs sm:text-sm font-medium dark:text-gray-200'
-                  >
-                    Include GST
-                  </label>
-                </div>
-                {gstEnabled && (
-                  <div className='ml-6'>
-                    <label className='block text-xs text-gray-600 dark:text-gray-400 mb-1'>
-                      GST Rate (%)
-                    </label>
-                    <input
-                      type='number'
-                      value={gstRate}
-                      onChange={(e) => setGstRate(e.target.value)}
-                      placeholder='8'
-                      step='0.1'
-                      min='0'
-                      max='100'
-                      className='w-20 sm:w-24 px-2 sm:px-3 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500'
-                    />
-                    <span className='text-xs text-gray-600 dark:text-gray-400 ml-2'>
-                      %
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+      <div className={`max-w-5xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 min-h-screen ${isWide === false ? 'pb-28' : 'pb-10'}`}>
+        <header className="flex items-start justify-between gap-3 mb-4 sm:mb-6">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+              <Receipt className="text-blue-600 dark:text-blue-400" />
+              Bill Splitter
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Tap who had what. Extras and totals update as you go.</p>
           </div>
-
-          <div className='space-y-4 sm:space-y-6'>
-            <div className='bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-lg'>
-              <h2 className='text-base sm:text-lg font-semibold mb-3 dark:text-gray-100'>
-                Bill Summary
-              </h2>
-              <div className='space-y-2 text-sm sm:text-base'>
-                <div className='flex justify-between'>
-                  <span>Subtotal:</span>
-                  <span>
-                    {formatCurrency(totals.subtotal, defaultCurrency)}
-                  </span>
-                </div>
-                {totals.discountAmount > 0 && (
-                  <>
-                    <div className='flex justify-between text-red-600'>
-                      <span>Discount:</span>
-                      <span>
-                        -
-                        {formatCurrency(totals.discountAmount, defaultCurrency)}
-                      </span>
-                    </div>
-                    <div className='flex justify-between'>
-                      <span>After Discount:</span>
-                      <span>
-                        {formatCurrency(totals.afterDiscount, defaultCurrency)}
-                      </span>
-                    </div>
-                  </>
-                )}
-                {serviceChargeEnabled && totals.serviceChargeAmount > 0 && (
-                  <>
-                    <div className='flex justify-between'>
-                      <span>Service Charge ({serviceChargeRate}%):</span>
-                      <span>
-                        {formatCurrency(
-                          totals.serviceChargeAmount,
-                          defaultCurrency
-                        )}
-                      </span>
-                    </div>
-                    <div className='flex justify-between'>
-                      <span>After Service Charge:</span>
-                      <span>
-                        {formatCurrency(
-                          totals.afterServiceCharge,
-                          defaultCurrency
-                        )}
-                      </span>
-                    </div>
-                  </>
-                )}
-                {gstEnabled && (
-                  <div className='flex justify-between'>
-                    <span>GST ({gstRate}%):</span>
-                    <span>
-                      {formatCurrency(totals.gstAmount, defaultCurrency)}
-                    </span>
-                  </div>
-                )}
-                <div className='flex justify-between font-bold text-base sm:text-lg border-t pt-2'>
-                  <span>Total:</span>
-                  <div className='text-right'>
-                    <div>{formatCurrency(totals.total, defaultCurrency)}</div>
-                    {convertToCurrency &&
-                      convertToCurrency !== defaultCurrency && (
-                        <div className='text-sm text-gray-600 dark:text-gray-400 font-normal'>
-                          {formatCurrency(
-                            convertCurrency(
-                              totals.total,
-                              defaultCurrency,
-                              convertToCurrency
-                            ),
-                            convertToCurrency
-                          )}
-                        </div>
-                      )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className='bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-lg'>
-              <div className='flex items-center justify-between mb-3'>
-                <h2 className='text-base sm:text-lg font-semibold dark:text-gray-100'>
-                  Per Person
-                </h2>
-                {people.length > 0 && (
-                  <select
-                    value={paidBy ?? ''}
-                    onChange={(e) => setPaidBy(e.target.value ? Number(e.target.value) : null)}
-                    className='text-xs sm:text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100'
-                  >
-                    <option value=''>Who paid?</option>
-                    {people.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className='space-y-3'>
-                {people.map((person) => {
-                  const personTotal = calculatePersonTotal(person.id)
-                  const personItems = getPersonItems(person.id)
-
-                  return (
-                    <div
-                      key={person.id}
-                      className='bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600'
-                    >
-                      <div className='flex justify-between items-center mb-2'>
-                        <span className='font-medium dark:text-gray-100 text-sm sm:text-base'>
-                          {person.name}
-                        </span>
-                        <div className='text-right'>
-                          <div className='text-base sm:text-lg font-bold'>
-                            {formatCurrency(personTotal, defaultCurrency)}
-                          </div>
-                          {convertToCurrency &&
-                            convertToCurrency !== defaultCurrency && (
-                              <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-400'>
-                                {formatCurrency(
-                                  convertCurrency(
-                                    personTotal,
-                                    defaultCurrency,
-                                    convertToCurrency
-                                  ),
-                                  convertToCurrency
-                                )}
-                              </div>
-                            )}
-                        </div>
-                      </div>
-                      <div className='text-xs sm:text-sm text-gray-600 dark:text-gray-400'>
-                        {personItems.map((item) => {
-                          const itemTotal = item.price * item.quantity
-                          const personShareObj = item.shares.find(s => s.personId === person.id)
-                          const totalShares = item.shares.reduce((sum, s) => sum + s.share, 0)
-                          const personFraction = personShareObj && totalShares > 0 ? personShareObj.share / totalShares : 0
-                          const isEqual = item.shares.every(s => s.share === item.shares[0]?.share)
-                          return (
-                            <div key={item.id} className='flex justify-between'>
-                              <span>
-                                {item.quantity > 1 && `${item.quantity}x `}
-                                {item.name}{' '}
-                                {item.shares.length > 1
-                                  ? isEqual
-                                    ? `(split ${item.shares.length})`
-                                    : `(${personShareObj?.share}/${totalShares})`
-                                  : ''}
-                              </span>
-                              <span>
-                                {formatCurrency(
-                                  itemTotal * personFraction,
-                                  defaultCurrency
-                                )}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {paidBy === person.id && (
-                        <div className='mt-2 text-xs font-medium text-green-600 dark:text-green-400'>
-                          Paid the bill
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className='flex gap-2'>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {hasContent && (
               <button
-                onClick={copyToClipboard}
-                className='flex-1 px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base'
-                disabled={items.length === 0 || people.length === 0}
+                type="button"
+                onClick={newBill}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
-                <Share2 size={16} />
-                Copy
+                <RotateCcw size={13} /> New bill
               </button>
-              <button
-                onClick={exportBreakdown}
-                className='flex-1 px-4 py-3 bg-gray-800 dark:bg-gray-700 text-white rounded-md hover:bg-gray-900 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base'
-                disabled={items.length === 0 || people.length === 0}
-              >
-                <Download size={16} />
-                Export
-              </button>
-            </div>
+            )}
+            <ThemeToggle />
+          </div>
+        </header>
 
-            {splitHistory.length > 0 && (
-              <div className='bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 rounded-lg'>
-                <div className='flex items-center justify-between mb-3'>
-                  <h2 className='text-base sm:text-lg font-semibold dark:text-gray-100'>
-                    Recent Splits
-                  </h2>
-                  <button
-                    onClick={clearHistory}
-                    className='text-xs text-red-500 hover:text-red-700 transition-colors'
-                  >
-                    Clear All
-                  </button>
-                </div>
-                <div className='space-y-2'>
-                  {splitHistory.map(entry => (
-                    <div key={entry.id} className='bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600'>
-                      <div className='flex justify-between items-center mb-1'>
-                        <span className='text-xs text-gray-500 dark:text-gray-400'>{entry.date}</span>
-                        <span className='font-medium text-sm dark:text-gray-100'>
-                          {formatCurrency(entry.total, entry.currency)}
-                        </span>
-                      </div>
-                      <div className='text-xs text-gray-600 dark:text-gray-400 mb-2'>
-                        {entry.people.map(p => `${p.name}: ${formatCurrency(p.total, entry.currency)}`).join(', ')}
-                      </div>
-                      <button
-                        onClick={() => copyHistoryEntry(entry.breakdownText)}
-                        className='text-xs text-blue-600 dark:text-blue-400 hover:underline'
-                      >
-                        Copy breakdown
-                      </button>
+        {!loaded || isWide === undefined ? (
+          <div className="h-40 rounded-xl bg-gray-50 dark:bg-gray-800 animate-pulse" />
+        ) : (
+          <>
+            <section className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3 sm:p-4 mb-4">
+              <PeopleBar people={people} savedNames={savedNames} onAdd={addPerson} onRemove={removePerson} onRename={renamePerson} />
+            </section>
+
+            {isWide ? (
+              <div className="grid md:grid-cols-[minmax(0,1fr)_320px] lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+                <div className="space-y-4">
+                  {showEmpty ? (
+                    <EmptyState
+                      onScan={() => setShowScanner(true)}
+                      onType={() => {
+                        setTypeMode(true)
+                        setFocusToken((t) => t + 1)
+                      }}
+                    />
+                  ) : (
+                    <SplitGrid
+                      items={items}
+                      people={people}
+                      shares={shares}
+                      total={totals.total}
+                      currency={defaultCurrency}
+                      onToggle={toggleAssignment}
+                      onToggleAll={toggleAll}
+                      onOpenSplit={setSplitItemId}
+                      onUpdate={updateItem}
+                      onRemove={removeItem}
+                    />
+                  )}
+                  {showAddForm && (
+                    <div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-3 sm:p-4">
+                      <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Add an item</h2>
+                      <AddItemForm currency={defaultCurrency} onAdd={addItem} focusToken={focusToken} />
                     </div>
-                  ))}
+                  )}
+                  {scannerBlock}
+                  <HistoryPanel history={splitHistory} onCopy={copyText} onClear={clearHistory} />
                 </div>
+                <aside className="space-y-4 md:sticky md:top-4">
+                  {summaryCard(false)}
+                  {settleUp(false)}
+                </aside>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {showEmpty ? (
+                  <EmptyState
+                    onScan={() => setShowScanner(true)}
+                    onType={() => {
+                      setTypeMode(true)
+                      setFocusToken((t) => t + 1)
+                    }}
+                  />
+                ) : null}
+                {scannerBlock}
+                {(items.length > 0 || showAddForm) && (
+                  <section className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-4 py-3">
+                    <h2 className="text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400 font-semibold mb-1">Items</h2>
+                    <div>
+                      {items.map((item) => (
+                        <ItemRow
+                          key={item.id}
+                          item={item}
+                          people={people}
+                          currency={defaultCurrency}
+                          onToggle={toggleAssignment}
+                          onToggleAll={toggleAll}
+                          onOpenSplit={setSplitItemId}
+                          onUpdate={updateItem}
+                          onRemove={removeItem}
+                        />
+                      ))}
+                    </div>
+                    {showAddForm && (
+                      <div className="pt-3">
+                        <AddItemForm currency={defaultCurrency} onAdd={addItem} focusToken={focusToken} />
+                      </div>
+                    )}
+                    <div className="border-t border-dashed border-gray-300 dark:border-gray-600 mt-4 pt-3">{summaryCard(true)}</div>
+                    <div className="border-t border-dashed border-gray-300 dark:border-gray-600 mt-4 pt-3">{settleUp(true)}</div>
+                  </section>
+                )}
+                <HistoryPanel history={splitHistory} onCopy={copyText} onClear={clearHistory} />
               </div>
             )}
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
-      {/* Copied Toast */}
-      {showCopiedToast && (
-        <div className='fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg z-50 flex items-center gap-2 animate-fade-in'>
-          <svg className='w-5 h-5 text-green-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M5 13l4 4L19 7' />
-          </svg>
-          <span className='text-sm font-medium'>Copied to clipboard!</span>
-        </div>
+      {isWide === false && loaded && items.length > 0 && (
+        <StickyBar
+          total={totals.total}
+          unassignedAmount={shares.unassignedAmount}
+          currency={defaultCurrency}
+          canShare={canShare}
+          onShare={shareBreakdown}
+          onJump={jumpToSplit}
+        />
       )}
+
+      <SplitSheet
+        item={splitItem}
+        people={people}
+        currency={defaultCurrency}
+        onToggle={toggleAssignment}
+        onUpdateShare={updateShare}
+        onResetEqual={resetEqual}
+        onClose={() => setSplitItemId(null)}
+      />
+
+      <Toast toast={toast} />
     </>
   )
 }
